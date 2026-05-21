@@ -61,6 +61,14 @@ export interface TurnFooterContext {
    */
   alreadyRetried?: boolean;
   alreadyRegenerated?: boolean;
+  /**
+   * Per @kenji PR109d review: prevent double-click duplicate sibling
+   * turns. The renderer marks an action `pending` from click time
+   * until `sessions:changed` (or timeout) clears it; the footer
+   * renders that action as disabled + busy with a "正在处理…"
+   * tooltip. Other turns / other action types stay clickable.
+   */
+  pendingActions?: ReadonlySet<TurnFooterActionId>;
 }
 
 const ACTION_LABEL: Record<TurnFooterActionId, string> = {
@@ -81,42 +89,50 @@ const ACTION_LABEL: Record<TurnFooterActionId, string> = {
  * fall back to optimistic guesses.
  */
 export function deriveTurnFooterActions(input: TurnFooterContext): TurnFooterAction[] {
-  const { status, hasContent, alreadyRetried, alreadyRegenerated } = input;
+  const { status, hasContent, alreadyRetried, alreadyRegenerated, pendingActions } = input;
+  const isPending = (id: TurnFooterActionId) => pendingActions?.has(id) ?? false;
+  const PENDING_TOOLTIP = '正在处理…';
 
   // Build entries in fixed order; later filtering / disabling per matrix.
-  const retry: TurnFooterAction = {
-    id: 'retry',
-    label: ACTION_LABEL.retry,
-    enabled: status === 'failed' || status === 'aborted',
-    tooltip:
-      status === 'failed' || status === 'aborted'
-        ? alreadyRetried
-          ? '已重试过，再次重试将创建新一轮回答'
-          : '使用相同问题重新尝试'
-        : '只有失败或被取消的回答可以重试',
-  };
-  const regenerate: TurnFooterAction = {
-    id: 'regenerate',
-    label: ACTION_LABEL.regenerate,
-    enabled: status === 'completed',
-    tooltip:
-      status === 'completed'
-        ? alreadyRegenerated
-          ? '已重新生成过，再次点击将创建新的并行回答'
-          : '保留当前回答，让模型再回答一次'
-        : '只有已完成的回答可以重新生成',
-  };
-  const branch: TurnFooterAction = {
-    id: 'branch',
-    label: ACTION_LABEL.branch,
-    enabled: status !== 'running',
-    tooltip:
-      status === 'running'
-        ? '当前回答仍在进行中，结束后再分支'
-        : status === 'aborted'
-        ? '从中断前的上下文分支出新对话'
-        : '基于此回答的上下文分支出新对话',
-  };
+  const retry: TurnFooterAction = isPending('retry')
+    ? { id: 'retry', label: ACTION_LABEL.retry, enabled: false, tooltip: PENDING_TOOLTIP }
+    : {
+        id: 'retry',
+        label: ACTION_LABEL.retry,
+        enabled: status === 'failed' || status === 'aborted',
+        tooltip:
+          status === 'failed' || status === 'aborted'
+            ? alreadyRetried
+              ? '已重试过，再次重试将创建新一轮回答'
+              : '使用相同问题重新尝试'
+            : '只有失败或被取消的回答可以重试',
+      };
+  const regenerate: TurnFooterAction = isPending('regenerate')
+    ? { id: 'regenerate', label: ACTION_LABEL.regenerate, enabled: false, tooltip: PENDING_TOOLTIP }
+    : {
+        id: 'regenerate',
+        label: ACTION_LABEL.regenerate,
+        enabled: status === 'completed',
+        tooltip:
+          status === 'completed'
+            ? alreadyRegenerated
+              ? '已重新生成过，再次点击将创建新的并行回答'
+              : '保留当前回答，让模型再回答一次'
+            : '只有已完成的回答可以重新生成',
+      };
+  const branch: TurnFooterAction = isPending('branch')
+    ? { id: 'branch', label: ACTION_LABEL.branch, enabled: false, tooltip: PENDING_TOOLTIP }
+    : {
+        id: 'branch',
+        label: ACTION_LABEL.branch,
+        enabled: status !== 'running',
+        tooltip:
+          status === 'running'
+            ? '当前回答仍在进行中，结束后再分支'
+            : status === 'aborted'
+            ? '从中断前的上下文分支出新对话'
+            : '基于此回答的上下文分支出新对话',
+      };
   const copy: TurnFooterAction = {
     id: 'copy',
     label: ACTION_LABEL.copy,

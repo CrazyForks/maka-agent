@@ -125,6 +125,85 @@ describe('deriveTurnFooterActions', () => {
     });
   });
 
+  describe('pending mask (@kenji review: double-click guard)', () => {
+    it('pending retry returns enabled=false + "正在处理…" tooltip', () => {
+      const actions = deriveTurnFooterActions(
+        ctx({ status: 'failed', pendingActions: new Set(['retry']) }),
+      );
+      const retry = actions.find((a) => a.id === 'retry');
+      assert.equal(retry?.enabled, false);
+      assert.equal(retry?.tooltip, '正在处理…');
+    });
+
+    it('pending regenerate returns enabled=false + busy tooltip', () => {
+      const actions = deriveTurnFooterActions(
+        ctx({ status: 'completed', pendingActions: new Set(['regenerate']) }),
+      );
+      const regen = actions.find((a) => a.id === 'regenerate');
+      assert.equal(regen?.enabled, false);
+      assert.equal(regen?.tooltip, '正在处理…');
+    });
+
+    it('pending branch returns enabled=false + busy tooltip', () => {
+      const actions = deriveTurnFooterActions(
+        ctx({ status: 'completed', pendingActions: new Set(['branch']) }),
+      );
+      const branch = actions.find((a) => a.id === 'branch');
+      assert.equal(branch?.enabled, false);
+      assert.equal(branch?.tooltip, '正在处理…');
+    });
+
+    it('pending on one action does NOT disable other actions', () => {
+      const actions = deriveTurnFooterActions(
+        ctx({ status: 'failed', pendingActions: new Set(['retry']) }),
+      );
+      const branch = actions.find((a) => a.id === 'branch');
+      assert.equal(branch?.enabled, true);
+      assert.notEqual(branch?.tooltip, '正在处理…');
+    });
+
+    it('pending labels preserved (screen readers still hear which action)', () => {
+      // @kenji: don't replace label with spinner-only — screen reader
+      // needs to know which action is processing.
+      const actions = deriveTurnFooterActions(
+        ctx({ status: 'failed', pendingActions: new Set(['retry']) }),
+      );
+      const retry = actions.find((a) => a.id === 'retry');
+      assert.equal(retry?.label, '重试'); // label stays
+    });
+
+    it('empty pending set behaves identically to undefined', () => {
+      const baseline = deriveTurnFooterActions(ctx({ status: 'failed' }));
+      const withEmpty = deriveTurnFooterActions(
+        ctx({ status: 'failed', pendingActions: new Set() }),
+      );
+      assert.deepEqual(baseline, withEmpty);
+    });
+
+    it('pending mask overrides the "alreadyRetried" hint (busy tooltip wins)', () => {
+      const actions = deriveTurnFooterActions(
+        ctx({
+          status: 'failed',
+          alreadyRetried: true,
+          pendingActions: new Set(['retry']),
+        }),
+      );
+      const retry = actions.find((a) => a.id === 'retry');
+      assert.equal(retry?.tooltip, '正在处理…');
+    });
+
+    it('copy is NOT affected by pending mask (it is in-component clipboard)', () => {
+      // The pending mask currently doesn't disable copy — clipboard
+      // writes are fast + idempotent. If we ever add a clipboard IPC
+      // that's slow, revisit.
+      const actions = deriveTurnFooterActions(
+        ctx({ status: 'completed', pendingActions: new Set(['copy']) }),
+      );
+      const copy = actions.find((a) => a.id === 'copy');
+      assert.equal(copy?.enabled, true);
+    });
+  });
+
   // Sanity: SessionStatus and TurnStatus are different enums; this
   // test makes sure the file references the right one. Tied to the
   // import path; if the helper accidentally imported SessionStatus

@@ -1684,21 +1684,29 @@ function TurnFooterActions(props: {
   }
   return (
     <div className="maka-turn-footer" role="toolbar" aria-label="本轮回答操作">
-      {props.actions.map((action) => (
-        <button
-          key={action.id}
-          type="button"
-          className="maka-turn-footer-action"
-          data-action={action.id}
-          disabled={!action.enabled}
-          aria-disabled={!action.enabled}
-          title={action.tooltip ?? action.label}
-          onClick={() => void handleClick(action)}
-        >
-          {STATUS_FOOTER_ICON[action.id]}
-          <span>{action.label}</span>
-        </button>
-      ))}
+      {props.actions.map((action) => {
+        // Per @kenji review: pending state must keep the original button
+        // label visible (not a spinner-only) so screen readers can hear
+        // which action is processing. `aria-busy="true"` is the AT signal.
+        const isPending = action.tooltip === '正在处理…';
+        return (
+          <button
+            key={action.id}
+            type="button"
+            className="maka-turn-footer-action"
+            data-action={action.id}
+            data-pending={isPending || undefined}
+            disabled={!action.enabled}
+            aria-disabled={!action.enabled}
+            aria-busy={isPending || undefined}
+            title={action.tooltip ?? action.label}
+            onClick={() => void handleClick(action)}
+          >
+            {STATUS_FOOTER_ICON[action.id]}
+            <span>{action.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
