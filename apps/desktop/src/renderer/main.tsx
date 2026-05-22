@@ -853,53 +853,14 @@ function AppShell() {
         } else {
           toastApi.error('对话出错', event.message);
         }
-        // PR-UI-12 fixup (@xuan review): turn-level error has the same
-        // "leaves live tools in-flight forever" failure mode as abort.
-        // Mark any in-flight live tools as `interrupted` so the stream
-        // panel + status dot stops claiming activity.
-        setLiveToolsBySession((current) => {
-          const list = current[sessionId];
-          if (!list || list.length === 0) return current;
-          let changed = false;
-          const nextList = list.map((tool) => {
-            const isInFlight =
-              tool.status === 'pending'
-              || tool.status === 'running'
-              || tool.status === 'waiting_permission';
-            if (!isInFlight) return tool;
-            changed = true;
-            return { ...tool, status: 'interrupted' as const };
-          });
-          return changed ? { ...current, [sessionId]: nextList } : current;
-        });
+        markInFlightToolsInterrupted(sessionId);
         void refreshSessions();
         void refreshMessages(sessionId);
         break;
       case 'abort':
         clearStreaming(sessionId);
         setPermissionBySession((current) => ({ ...current, [sessionId]: undefined }));
-        // PR-UI-12 fixup (@xuan review): mark any live in-flight tools
-        // as `interrupted` so the stream panel header flips to
-        // "已中断 · 已收到的输出" and the live pulse stops. Without
-        // this, a tool that had `tool_output_delta` but no terminal
-        // `tool_result` keeps showing `running` even after the turn
-        // aborted; `materializeTools` merge `{...persisted, ...live}`
-        // would then mask the persisted `interrupted` status.
-        setLiveToolsBySession((current) => {
-          const list = current[sessionId];
-          if (!list || list.length === 0) return current;
-          let changed = false;
-          const nextList = list.map((tool) => {
-            const isInFlight =
-              tool.status === 'pending'
-              || tool.status === 'running'
-              || tool.status === 'waiting_permission';
-            if (!isInFlight) return tool;
-            changed = true;
-            return { ...tool, status: 'interrupted' as const };
-          });
-          return changed ? { ...current, [sessionId]: nextList } : current;
-        });
+        markInFlightToolsInterrupted(sessionId);
         void refreshSessions();
         void refreshMessages(sessionId);
         break;
@@ -1068,6 +1029,39 @@ function AppShell() {
    *    where `tool_output_delta` arrives before `tool_start` is
    *    flushed to the renderer; we'd rather show output than drop it.
    */
+  /**
+   * PR-UI-12 fixup (@xuan post-signoff cleanup): shared helper for the
+   * abort + error event paths. A turn-ending event leaves any tool
+   * that was `pending` / `running` / `waiting_permission` orphaned
+   * because the runtime won't emit a per-tool terminal `tool_result`
+   * for it. Flip those tools to `interrupted` so the `ToolOutputStream`
+   * header reads "已中断 · 已收到的输出", the live pulse stops, and
+   * the `materializeTurns` merge `{...persisted, ...live}` doesn't
+   * mask the persisted `interrupted` status with stale live state.
+   *
+   * Tools that already reached terminal (`completed` / `errored` /
+   * `interrupted`) are left alone. Tools without buffer are still
+   * flipped — the user shouldn't see a forever-spinning status dot
+   * just because the tool happened to produce no streamed output.
+   */
+  function markInFlightToolsInterrupted(sessionId: string) {
+    setLiveToolsBySession((current) => {
+      const list = current[sessionId];
+      if (!list || list.length === 0) return current;
+      let changed = false;
+      const nextList = list.map((tool) => {
+        const isInFlight =
+          tool.status === 'pending'
+          || tool.status === 'running'
+          || tool.status === 'waiting_permission';
+        if (!isInFlight) return tool;
+        changed = true;
+        return { ...tool, status: 'interrupted' as const };
+      });
+      return changed ? { ...current, [sessionId]: nextList } : current;
+    });
+  }
+
   function appendToolOutputChunk(sessionId: string, toolUseId: string, chunk: ToolOutputChunk) {
     setLiveToolsBySession((current) => {
       const list = current[sessionId] ?? [];
