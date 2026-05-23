@@ -14,10 +14,13 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import {
+  ALLOWED_IMAGE_MIMES,
   IMAGE_PAYLOAD_MAX_BASE64_LENGTH,
   IMAGE_PAYLOAD_MAX_BYTES,
+  decideImagePostLoad,
   exceedsImagePayloadCap,
   formatPreviewSize,
+  normalizeAllowedImageMime,
   resolvePreviewKind,
 } from '@maka/ui/artifact-preview-registry';
 
@@ -263,6 +266,104 @@ describe('formatPreviewSize', () => {
     assert.equal(formatPreviewSize(-1), '未知大小');
     assert.equal(formatPreviewSize(NaN), '未知大小');
     assert.equal(formatPreviewSize(Infinity), '未知大小');
+  });
+});
+
+describe('normalizeAllowedImageMime — L2 MIME re-validation', () => {
+  it('returns the lower-cased MIME for every allowed entry', () => {
+    for (const mime of ALLOWED_IMAGE_MIMES) {
+      assert.equal(normalizeAllowedImageMime(mime), mime);
+    }
+  });
+  it('lower-cases and trims before checking', () => {
+    assert.equal(normalizeAllowedImageMime('IMAGE/PNG'), 'image/png');
+    assert.equal(normalizeAllowedImageMime('  image/JPEG  '), 'image/jpeg');
+  });
+  it('rejects disallowed MIMEs', () => {
+    assert.equal(normalizeAllowedImageMime('image/svg+xml'), null);
+    assert.equal(normalizeAllowedImageMime('image/heic'), null);
+    assert.equal(normalizeAllowedImageMime('application/octet-stream'), null);
+    assert.equal(normalizeAllowedImageMime('text/html'), null);
+  });
+  it('rejects empty / non-string', () => {
+    assert.equal(normalizeAllowedImageMime(''), null);
+    assert.equal(normalizeAllowedImageMime('   '), null);
+    assert.equal(normalizeAllowedImageMime(undefined), null);
+    // @ts-expect-error — intentional bad input
+    assert.equal(normalizeAllowedImageMime(null), null);
+    // @ts-expect-error — intentional bad input
+    assert.equal(normalizeAllowedImageMime(42), null);
+  });
+});
+
+describe('decideImagePostLoad — cross-layer resolver+sniff scenarios (@kenji msg f1ef0cc5)', () => {
+  const smallBase64 = 'A'.repeat(100); // well under cap
+  const oversizeBase64 = 'A'.repeat(IMAGE_PAYLOAD_MAX_BASE64_LENGTH + 1);
+
+  it('metadata image/png + sniffed image/svg+xml → unsupported(mime_disallowed), NO image render', () => {
+    // Even though the L1 resolver accepted the artifact (because
+    // metadata claimed `image/png`), the post-load sniff revealed
+    // SVG. Rendering this as `<img src="data:image/svg+xml;...">`
+    // would execute it as an active document. Hard reject.
+    const outcome = decideImagePostLoad({
+      base64: smallBase64,
+      mimeType: 'image/svg+xml',
+    });
+    assert.deepEqual(outcome, { kind: 'unsupported', reason: 'mime_disallowed' });
+  });
+
+  it('metadata no MIME + ext .png + sniffed image/png → image render with sniffed MIME', () => {
+    // The resolver took the ext fallback path; main's sniff
+    // confirmed PNG. Render normally, using the SNIFFED MIME (not
+    // the absent metadata MIME).
+    const outcome = decideImagePostLoad({
+      base64: smallBase64,
+      mimeType: 'image/png',
+    });
+    assert.deepEqual(outcome, { kind: 'image', safeMime: 'image/png', base64: smallBase64 });
+  });
+
+  it('metadata no MIME + ext .png + sniffed application/octet-stream → unsupported(mime_disallowed)', () => {
+    // The ext fallback let the artifact through L1, but main's
+    // sniff couldn't classify it (or sniffed a non-image type).
+    // No image render.
+    const outcome = decideImagePostLoad({
+      base64: smallBase64,
+      mimeType: 'application/octet-stream',
+    });
+    assert.deepEqual(outcome, { kind: 'unsupported', reason: 'mime_disallowed' });
+  });
+
+  it('oversize takes precedence over MIME — even a valid PNG over cap is rejected', () => {
+    const outcome = decideImagePostLoad({
+      base64: oversizeBase64,
+      mimeType: 'image/png',
+    });
+    assert.deepEqual(outcome, { kind: 'unsupported', reason: 'oversize' });
+  });
+
+  it('oversize + disallowed MIME → oversize reason (cap is the earlier gate)', () => {
+    // Documents the precedence: cap is cheaper to check and
+    // shouldn't be masked by a separately-disallowed MIME.
+    const outcome = decideImagePostLoad({
+      base64: oversizeBase64,
+      mimeType: 'image/svg+xml',
+    });
+    assert.equal(outcome.kind, 'unsupported');
+    if (outcome.kind === 'unsupported') {
+      assert.equal(outcome.reason, 'oversize');
+    }
+  });
+
+  it('safeMime returned is lowercased even if sniffed MIME was uppercase', () => {
+    // Defensive against main returning unnormalized MIME. The
+    // safeMime placed in the DOM is always a member of the
+    // allowlist, in canonical lower-case form.
+    const outcome = decideImagePostLoad({
+      base64: smallBase64,
+      mimeType: 'IMAGE/PNG',
+    });
+    assert.deepEqual(outcome, { kind: 'image', safeMime: 'image/png', base64: smallBase64 });
   });
 });
 

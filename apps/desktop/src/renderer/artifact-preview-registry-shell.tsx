@@ -29,7 +29,7 @@ import type { ArtifactBinaryReadResult, ArtifactRecord } from '@maka/core';
 import {
   type ArtifactPreviewInput,
   type PreviewResolution,
-  exceedsImagePayloadCap,
+  decideImagePostLoad,
   formatPreviewSize,
   resolvePreviewKind,
 } from '@maka/ui/artifact-preview-registry';
@@ -178,14 +178,23 @@ function ImageArtifactPreview(props: {
       />
     );
   }
-  // L2 cap check — fail closed if main returned a payload past the
-  // policy cap even though resolver thought sizeBytes was within
-  // limits (or sizeBytes was undefined at resolve time).
-  if (exceedsImagePayloadCap(result.value.base64)) {
+  // L2 post-load decision — pure helper combines the base64 cap
+  // and the MIME re-validation. The MIME we trust for the final
+  // `<img src="data:<mime>;base64,...">` is the one main sniffed,
+  // re-validated against the SAME allowlist the L1 resolver used.
+  // The metadata MIME (which the L1 resolver consulted) is
+  // user-controllable; under no circumstances do we let it drive
+  // the rendered DOM attribute. @kenji review @msg c9eb3b6f / @msg
+  // f1ef0cc5.
+  const outcome = decideImagePostLoad({
+    base64: result.value.base64,
+    mimeType: result.value.mimeType,
+  });
+  if (outcome.kind === 'unsupported') {
     return (
       <UnsupportedArtifactPreview
         input={props.input}
-        reason="oversize"
+        reason={outcome.reason}
         onShowInFolder={props.onShowInFolder}
       />
     );
@@ -194,7 +203,7 @@ function ImageArtifactPreview(props: {
     <div className="maka-artifact-preview-image">
       <img
         alt={props.record.name}
-        src={`data:${result.value.mimeType};base64,${result.value.base64}`}
+        src={`data:${outcome.safeMime};base64,${outcome.base64}`}
       />
     </div>
   );

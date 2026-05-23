@@ -118,14 +118,69 @@ export const IMAGE_PAYLOAD_MAX_BASE64_LENGTH = Math.ceil((IMAGE_PAYLOAD_MAX_BYTE
 /**
  * MIME allowlist. Lower-cased exact match. SVG is intentionally
  * absent — it's deferred to PR-RENDER-3b.
+ *
+ * Exported so the renderer shell can use the SAME set for the
+ * post-load L2 MIME re-validation (@kenji review @msg c9eb3b6f
+ * point #2 / #3). Single source of truth; no parallel string
+ * table on the renderer side.
  */
-const ALLOWED_IMAGE_MIMES: ReadonlySet<string> = new Set([
+export const ALLOWED_IMAGE_MIMES: ReadonlySet<string> = new Set([
   'image/png',
   'image/jpeg',
   'image/gif',
   'image/webp',
   'image/avif',
 ]);
+
+/**
+ * Pure: returns the lower-cased MIME if it's in the allowlist;
+ * `null` otherwise. Renderer uses this AFTER `readBinary` to
+ * re-validate the MIME main sniffed, since the metadata MIME the
+ * resolver consulted is user-controlled (could be `image/png`
+ * metadata claim over actual SVG payload). The `<img src="data:
+ * <mime>;base64,...">` attribute MUST be built from the result
+ * of this function, never from the raw `mimeType` field.
+ */
+export function normalizeAllowedImageMime(mimeType: string | undefined): string | null {
+  if (typeof mimeType !== 'string') return null;
+  const mime = mimeType.trim().toLowerCase();
+  if (mime === '') return null;
+  return ALLOWED_IMAGE_MIMES.has(mime) ? mime : null;
+}
+
+/**
+ * L2 outcome (post-`readBinary`). Pure decision that combines the
+ * base64 cap check with the MIME re-validation, returning either
+ * a `<img>`-renderable payload OR a typed Unsupported reason.
+ *
+ * Why this is its own function and not inlined in the component:
+ * the cross-layer scenarios @kenji asked for in @msg f1ef0cc5 —
+ *   - metadata `image/png` + sniffed `image/svg+xml` → Unsupported
+ *   - metadata none + ext `.png` + sniffed `image/png` → image
+ *   - metadata none + ext `.png` + sniffed `application/octet
+ *     -stream` → Unsupported
+ * are renderer-decision tests that don't need a DOM. The
+ * component is then a thin shell over this function, exactly the
+ * same shape as the L1 `resolvePreviewKind` / `<RegistryArtifact
+ * Preview>` relationship.
+ */
+export type ImagePostLoadOutcome =
+  | { kind: 'image'; safeMime: string; base64: string }
+  | { kind: 'unsupported'; reason: 'oversize' | 'mime_disallowed' };
+
+export function decideImagePostLoad(input: {
+  base64: string;
+  mimeType: string;
+}): ImagePostLoadOutcome {
+  if (exceedsImagePayloadCap(input.base64)) {
+    return { kind: 'unsupported', reason: 'oversize' };
+  }
+  const safeMime = normalizeAllowedImageMime(input.mimeType);
+  if (!safeMime) {
+    return { kind: 'unsupported', reason: 'mime_disallowed' };
+  }
+  return { kind: 'image', safeMime, base64: input.base64 };
+}
 
 /**
  * Extension fallback. Lower-cased exact match including the dot.
