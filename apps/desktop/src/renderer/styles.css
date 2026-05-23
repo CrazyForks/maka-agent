@@ -5270,16 +5270,28 @@ button:active {
   gap: 10px;
   padding: 7px 10px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  /* PR-UI-LAYOUT-38: modelTableRow radius 8 → 10 to join the card
+   * family rhythm (chips 10, cards 10-12, rows 10). Added smooth
+   * transition + focus-visible ring for keyboard a11y on the
+   * model picker (was missing). */
+  border-radius: 10px;
   background: transparent;
   color: var(--foreground);
   text-align: left;
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .modelTableRow:hover {
   background: var(--background);
   border-color: var(--border);
+}
+
+.modelTableRow:focus-visible {
+  outline: none;
+  background: var(--background);
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
 }
 
 .modelTableRow[data-default="true"] {
