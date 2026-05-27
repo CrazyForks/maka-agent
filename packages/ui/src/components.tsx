@@ -291,14 +291,6 @@ export function SessionListPanel(props: {
    * real backend behind the same callback.
    */
   onOpenSearchModal?(): void;
-  /**
-   * PR-UX-POLISH-1 commit 2 (yuejing UX audit P2 #10): open the
-   * KeyboardHelpModal. Wired from main.tsx via `useKeyboardHelp()`'s
-   * new `openHelp` return value. Powers the small `? 快捷键` chip
-   * in the sidebar footer that adds discoverability for the
-   * existing `?` keyboard shortcut.
-   */
-  onOpenKeyboardHelp?(): void;
   rowActions?: SessionRowActions;
 }) {
   // PR-SIDEBAR-IA-0 Phase 2 fixup (WAWQAQ `49309559` + kenji
@@ -310,32 +302,16 @@ export function SessionListPanel(props: {
   // visible, lightweight control in a separate PR. `NavSelection.filter`
   // stays in the type for storage continuity but is internal-only.
   const title = MODULE_NAV_LABEL[props.selection.section];
-  const [searchQuery, setSearchQuery] = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Filter the incoming sessions by name. Case-insensitive substring is
-  // enough for chats — most users name them with the topic. Falls back to
-  // showing everything when the query is empty.
-  const filteredSessions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return props.sessions;
-    return props.sessions.filter((session) => session.name.toLowerCase().includes(q));
-  }, [props.sessions, searchQuery]);
-
-  // ⌘F / Ctrl+F focuses the search field instead of triggering Electron's
-  // page find. Limit to the sessions section so it doesn't fight the chat.
-  useEffect(() => {
-    function onKeyDown(event: globalThis.KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey)) return;
-      if (event.key !== 'f' && event.key !== 'F') return;
-      if (props.selection.section !== 'sessions') return;
-      event.preventDefault();
-      searchInputRef.current?.focus();
-      searchInputRef.current?.select();
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [props.selection.section]);
+  // PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
+  // `2844f64f`): in-list `筛选会话` filter input removed. All search
+  // capability lives in the top-level `搜索` modal (PR-SEARCH-MODAL-
+  // REAL-0 wires it to `window.maka.search.thread()` in the same PR).
+  // The previous `searchQuery` state + `searchInputRef` + ⌘F/Ctrl+F
+  // focus binding are gone with it; ⌘F is freed for future use.
+  // `filteredSessions` collapses to a direct passthrough of
+  // `props.sessions` — group rendering downstream still partitions
+  // by status / time / filter.
+  const filteredSessions = props.sessions;
 
   function handleListKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     // PR-SIDEBAR-IA-0 Phase 2 fixup (xuan `71687cc7`): the
@@ -485,57 +461,23 @@ export function SessionListPanel(props: {
       </nav>
 
       {/*
-        PR-SIDEBAR-IA-0 Phase 2 fixup v2 (WAWQAQ `49309559`,
-        `4259bf8c`; xuan `c73e74da`, `71687cc7`, `dce5a6fb`; kenji
-        `9f683ea8`):
-          - The Chats/Pinned/Archived nav row switcher was removed.
-          - The "查看已归档对话" link was removed.
-          - The ArrowLeft/Right hidden keyboard filter cycle was
-            removed.
-          - The session-name filter input below is kept, with copy
-            renamed to "筛选会话" so users do not confuse it with
-            the global Search modal (per xuan `dce5a6fb` #1).
-          - `NavSelection.filter` stays as a stable storage field
-            but is no longer exposed as a sidebar control. Future
-            Pinned/Archived access lands in a separate PR with a
-            deliberate, visible control.
-      */}
+        PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
+        `2844f64f` blocker #2): the in-list `筛选会话` filter input
+        is REMOVED entirely. Search capability lives only in the
+        top-level `搜索` modal (Cmd-click / sidebar nav → modal),
+        which the same PR wires to real `window.maka.search.thread()`
+        backend. No more duplicated search affordances; one canonical
+        entry point.
 
-      <div
-        className="maka-session-search"
-        hidden={props.selection.section !== 'sessions'}
-      >
-        <Search strokeWidth={1.5} aria-hidden="true" />
-        <input
-          ref={searchInputRef}
-          type="search"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape' && searchQuery) {
-              event.preventDefault();
-              setSearchQuery('');
-            }
-          }}
-          placeholder="筛选会话…  ⌘F 聚焦"
-          aria-label="筛选会话"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            className="maka-session-search-clear"
-            onClick={() => {
-              setSearchQuery('');
-              searchInputRef.current?.focus();
-            }}
-            aria-label="清空搜索"
-          >
-            ×
-          </button>
-        )}
-      </div>
+        Removed with it:
+        - `searchQuery` state + `searchInputRef`
+        - `useMemo(() => filter sessions by name)` — sessions pass
+          through unchanged; group rendering still partitions.
+        - `useEffect(⌘F focuses input)` — ⌘F is freed.
+        - `.maka-session-search` JSX block + clear button.
+        - "没有匹配的会话" empty state (the only consumer was
+          `filteredSessions.length === 0 && searchQuery.length > 0`).
+      */}
 
       <section className="maka-session-list" aria-label={title}>
         <div className="maka-session-list-title">{title}</div>
@@ -595,12 +537,6 @@ export function SessionListPanel(props: {
               <button className="maka-button maka-empty-state-cta" type="button" onClick={props.onNew}>
                 新建对话
               </button>
-            </div>
-          ) : filteredSessions.length === 0 ? (
-            <div className="maka-empty-state">
-              <Search className="maka-empty-state-icon" strokeWidth={1.5} />
-              <div className="maka-empty-state-title">没有匹配的会话</div>
-              <div className="maka-empty-state-body">没有名字包含 “{searchQuery}” 的会话。换个关键词，或者按 Esc 清空搜索。</div>
             </div>
           ) : (
             <div className="maka-list-stack" onKeyDown={handleListKeyDown}>
@@ -701,24 +637,15 @@ export function SessionListPanel(props: {
           <span>设置</span>
         </button>
         {/*
-          PR-UX-POLISH-1 commit 2 (yuejing UX audit P2 #10):
-          small `? 快捷键` chip surfaces the existing keyboard
-          shortcut. Without it, users had to discover `?` by
-          accident (or never). Click opens KeyboardHelpModal via
-          the new `openHelp` return value from `useKeyboardHelp`.
+          PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji
+          msg `2844f64f` blocker #1): the `? 快捷键` chip in the
+          sidebar footer is removed. The sidebar footer is for
+          product nav/state, not help affordances. Keyboard
+          shortcut discoverability moves to Command Palette
+          (`查看快捷键` entry) and the existing global `?` keydown
+          listener stays — power users still hit `?` to open the
+          modal; new users find it via Command Palette.
         */}
-        {props.onOpenKeyboardHelp && (
-          <button
-            className="maka-session-panel-help-chip"
-            type="button"
-            onClick={props.onOpenKeyboardHelp}
-            aria-label="查看键盘快捷键"
-            title="查看键盘快捷键 (按 ? 也可打开)"
-          >
-            <kbd aria-hidden="true">?</kbd>
-            <span>快捷键</span>
-          </button>
-        )}
       </footer>
     </aside>
   );
