@@ -1517,7 +1517,6 @@ function AppShell(props: {
             onNew={createSession}
             onOpenSkillFolder={() => void openSkillsFolder()}
             onOpenSearchModal={() => setSearchModalOpen(true)}
-            onOpenKeyboardHelp={openHelp}
             rowActions={{
               onToggleFlag: (sessionId, next) => void flagSession(sessionId, next),
               onArchive: (sessionId) => void archiveSession(sessionId),
@@ -1663,11 +1662,12 @@ function AppShell(props: {
             onNewChat: () => void createSession(),
             onOpenSettings: openSettings,
             onOpenSettingsSection: (section) => openSettingsSection(section),
-            onOpenShortcuts: () => {
-              // useKeyboardHelp() exposes only close; trigger via window event
-              // simulation by dispatching a `?` keypress on the document.
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
-            },
+            // PR-UX-POLISH-1 commit 4 (WAWQAQ `e0dbad11` + kenji `2844f64f`):
+            // use the openHelp callback returned by useKeyboardHelp directly,
+            // instead of dispatching a synthetic KeyboardEvent. Same effect,
+            // clearer intent, and avoids the foot-gun where a typed `?` in a
+            // text input would be swallowed by the global keydown listener.
+            onOpenShortcuts: openHelp,
             onSetTheme: setThemePref,
             onTestConnection: async (slug) => {
               try {

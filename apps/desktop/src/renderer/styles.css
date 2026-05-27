@@ -189,23 +189,20 @@ button:active {
 }
 
 .maka-session-panel {
-  /* PR-SIDEBAR-IA-0 Phase 2 (xuan msg `47e204f2` + WAWQAQ fixup
-   * `49309559`): grid is now 5 rows. The visible Chats/Pinned/Archived
-   * switcher was removed per WAWQAQ — Pinned/Archived are NOT
-   * sidebar-level tabs. Row order top-to-bottom:
+  /* PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
+   * `2844f64f`): grid is now 4 rows (was 5). The in-list
+   * `筛选会话` filter input row was removed — all search lives in
+   * the top-level `搜索` modal. Row order top-to-bottom:
    *   1. .maka-session-panel-header   — new chat button (auto)
    *   2. .maka-sidebar-modules        — top-level module nav (auto)
-   *   3. .maka-session-search         — session-name search input (auto, hidden when not sessions)
-   *   4. .maka-session-list           — scroll container (1fr, Phase 1 fix)
-   *   5. .maka-session-panel-footer   — 版本更新 + 设置 (auto)
-   * Hidden rows collapse to 0px so non-Sessions modules show only
-   * header / module-nav / content / footer.
+   *   3. .maka-session-list           — scroll container (1fr, Phase 1 fix)
+   *   4. .maka-session-panel-footer   — 版本更新 + 设置 (auto)
    */
   min-width: 0;
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden;
   background: transparent;
 }
@@ -310,92 +307,10 @@ button:active {
  * Pinned/Archived access lands in a separate PR with its own
  * deliberate styling. */
 
-.maka-session-search {
-  /* PR-UI-LAYOUT-8: session-search refresh.
-   * - Background: `--foreground-2` (slight tint) → transparent so
-   *   the search input sits on the warm panel without its own band.
-   * - Border radius 8 → 10 (matches the new card / chip language).
-   * - Height 34 → 32 (tighter without losing tap target).
-   * - Focus state adds accent ring outside the border for clarity. */
-  height: 32px;
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  margin: 0 10px 8px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--foreground-40);
-  font-size: 13px;
-  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
-}
-
-.maka-session-search:hover {
-  border-color: oklch(from var(--foreground) l c h / 0.08);
-}
-
-.maka-session-search:focus-within {
-  border-color: oklch(from var(--accent) l c h / 0.42);
-  background: var(--background);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.08);
-}
-
-.maka-session-search svg {
-  width: 14px;
-  height: 14px;
-}
-
-.maka-session-search input {
-  border: 0;
-  background: transparent;
-  color: var(--foreground);
-  font-size: 13px;
-  outline: 0;
-  width: 100%;
-}
-
-.maka-session-search input::placeholder {
-  color: var(--foreground-40);
-}
-
-/* Hide the browser's default search-cancel button — we render our own. */
-.maka-session-search input::-webkit-search-cancel-button {
-  display: none;
-}
-
-.maka-session-search-clear {
-  width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  /* PR-UI-LAYOUT-39: clear button radius 4 → 6 + focus ring +
-   * smooth transition. The "×" clear is a 18×18 icon button
-   * inside the search wrapper; keyboard tab into it had no
-   * visible focus before. */
-  border-radius: 6px;
-  background: transparent;
-  color: var(--foreground-50);
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0;
-  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
-}
-
-.maka-session-search-clear:hover {
-  color: var(--foreground);
-  background: var(--foreground-5);
-}
-
-.maka-session-search-clear:focus-visible {
-  outline: none;
-  color: var(--foreground);
-  background: var(--foreground-5);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
-}
+/* PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
+ * `2844f64f`): `.maka-session-search` + `.maka-session-search-clear`
+ * rules deleted. The in-list filter input they styled was removed;
+ * all search lives in the top-level `搜索` modal. */
 
 .maka-session-list {
   /* PR-SIDEBAR-IA-0 Phase 1 (xuan msg `dc790a54`, kenji msg `0f7bb872`):
@@ -439,50 +354,11 @@ button:active {
   border-top: 1px solid var(--border);
 }
 
-/* PR-UX-POLISH-1 commit 2 (yuejing UX audit P2 #10): tiny chip
- * surfacing the `?` keyboard shortcut for the KeyboardHelpModal.
- * Visually lighter than the `.maka-nav-row` buttons above (just
- * a hint, not a primary nav action). Hover lifts slightly for
- * affordance feedback. */
-.maka-session-panel-help-chip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--foreground-50);
-  font-size: 11px;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-.maka-session-panel-help-chip:hover {
-  background: oklch(from var(--foreground) l c h / 0.04);
-  color: var(--foreground);
-}
-.maka-session-panel-help-chip:focus-visible {
-  outline: none;
-  background: oklch(from var(--foreground) l c h / 0.04);
-  color: var(--foreground);
-  box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.18);
-}
-.maka-session-panel-help-chip kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--background);
-  font-family: inherit;
-  font-size: 11px;
-  line-height: 1;
-}
+/* PR-UX-POLISH-1 commit 4 (WAWQAQ `e0dbad11` + kenji `2844f64f`):
+ * `.maka-session-panel-help-chip` was removed — the sidebar footer
+ * is for product nav/state, not for help affordances. Keyboard
+ * discoverability now lives in the Command Palette via the
+ * `查看快捷键` entry. */
 
 .maka-nav-rail {
   min-width: 0;
