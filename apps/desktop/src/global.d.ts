@@ -184,6 +184,8 @@ declare global {
           arch: string;
           osRelease: string;
           workspacePath: string;
+          buildMode: 'dev' | 'packaged';
+          buildCommit: string | null;
         }>;
         openPath(
           key: 'workspace' | 'skills',

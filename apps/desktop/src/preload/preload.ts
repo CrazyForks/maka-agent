@@ -338,6 +338,8 @@ contextBridge.exposeInMainWorld('maka', {
       arch: string;
       osRelease: string;
       workspacePath: string;
+      buildMode: 'dev' | 'packaged';
+      buildCommit: string | null;
     }> {
       return ipcRenderer.invoke('app:info');
     },
