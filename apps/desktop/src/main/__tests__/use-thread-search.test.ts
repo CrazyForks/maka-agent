@@ -436,18 +436,32 @@ describe('buildContentSearchCommands — palette commands per state', () => {
     assert.equal(cmds[1]!.hint, 'hello B');
   });
 
-  it('clicking a hit calls onSelectSession with the sessionId', () => {
-    const selected: string[] = [];
+  it('clicking a hit calls onSelectSession with the sessionId and turnId', () => {
+    const selected: Array<{ sessionId: string; turnId?: string }> = [];
     const cmds = buildContentSearchCommands(
       {
         kind: 'results',
         query: 'hello',
         hits: [{ sessionId: 's-target', title: 'hit', snippet: 'snip' }],
       },
-      (sessionId: string) => selected.push(sessionId),
+      (sessionId: string, turnId?: string) => selected.push({ sessionId, turnId }),
     );
     cmds[0]!.run();
-    assert.deepEqual(selected, ['s-target']);
+    assert.deepEqual(selected, [{ sessionId: 's-target', turnId: undefined }]);
+  });
+
+  it('clicking a turn-level hit preserves the matched turn anchor', () => {
+    const selected: Array<{ sessionId: string; turnId?: string }> = [];
+    const cmds = buildContentSearchCommands(
+      {
+        kind: 'results',
+        query: 'hello',
+        hits: [{ sessionId: 's-target', turnId: 'turn-1', title: 'hit', snippet: 'snip' }],
+      },
+      (sessionId: string, turnId?: string) => selected.push({ sessionId, turnId }),
+    );
+    cmds[0]!.run();
+    assert.deepEqual(selected, [{ sessionId: 's-target', turnId: 'turn-1' }]);
   });
 
   it('clicking a hit when no onSelectSession is wired does nothing (no throw)', () => {
