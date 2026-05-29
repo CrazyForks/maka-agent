@@ -42,6 +42,7 @@ import { join, resolve } from 'node:path';
 const COMPONENTS_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx');
 const MAIN_TSX_PATH = join(process.cwd(), 'src', 'renderer', 'main.tsx');
 const STYLES_PATH = join(process.cwd(), 'src', 'renderer', 'styles.css');
+const COMMAND_PALETTE_CONTENT_PATH = join(process.cwd(), 'src', 'renderer', 'command-palette-content-search.ts');
 
 describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', () => {
   it('SearchModal signature takes only onClose — NO `open` prop (conditional-mount contract)', async () => {
@@ -131,11 +132,17 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
   it('search result navigation consumes target.turnId instead of only switching sessions', async () => {
     const components = await readFile(COMPONENTS_PATH, 'utf8');
     const main = await readFile(MAIN_TSX_PATH, 'utf8');
+    const contentSearch = await readFile(COMMAND_PALETTE_CONTENT_PATH, 'utf8');
 
     assert.match(
       components,
       /props\.onNavigateToSession\(result\.target\.sessionId,\s*result\.target\.turnId\)/,
       'SearchModal must pass the matched turnId through to the renderer shell',
+    );
+    assert.match(
+      contentSearch,
+      /onSelectSession\(hit\.sessionId,\s*hit\.turnId\)/,
+      'Command Palette content-search hits must pass the matched turnId through too',
     );
     assert.doesNotMatch(
       main,

@@ -27,7 +27,7 @@ import type { NormalizedThreadHit, ThreadSearchState } from './use-thread-search
 
 export function buildContentSearchCommands(
   state: ThreadSearchState,
-  onSelectSession?: (sessionId: string) => void,
+  onSelectSession?: (sessionId: string, turnId?: string) => void,
 ): Command[] {
   switch (state.kind) {
     case 'idle':
@@ -103,7 +103,7 @@ export function buildContentSearchCommands(
 function contentSearchHitCommand(
   hit: NormalizedThreadHit,
   index: number,
-  onSelectSession?: (sessionId: string) => void,
+  onSelectSession?: (sessionId: string, turnId?: string) => void,
 ): Command {
   return {
     id: `thread-search:hit:${hit.sessionId}:${hit.turnId ?? 'session'}:${index}`,
@@ -114,7 +114,7 @@ function contentSearchHitCommand(
     Icon: Search,
     keywords: [],
     run: () => {
-      if (onSelectSession) onSelectSession(hit.sessionId);
+      if (onSelectSession) onSelectSession(hit.sessionId, hit.turnId);
     },
   };
 }

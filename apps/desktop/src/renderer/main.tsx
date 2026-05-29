@@ -2210,7 +2210,15 @@ function AppShell() {
       {paletteOpen && (
         <CommandPalette
           onClose={closePalette}
-          onSelectSession={setActiveId}
+          onSelectSession={(sessionId, turnId) => {
+            setNavSelection({ section: 'sessions', filter: 'chats' });
+            setActiveId(sessionId);
+            if (turnId) {
+              setSearchScrollTarget({ sessionId, turnId, nonce: Date.now() });
+            } else {
+              setSearchScrollTarget(null);
+            }
+          }}
           commands={buildCommandList({
             sessions: visibleSessions,
             activeSessionId: activeId,

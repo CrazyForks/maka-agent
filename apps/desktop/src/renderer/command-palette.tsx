@@ -559,12 +559,10 @@ export function CommandPalette(props: {
   onClose(): void;
   /**
    * Navigate to a session. Called when the user activates a content-
-   * search hit so the palette can jump to the matched session. Wired
-   * by main.tsx to the existing `setActiveId` (same handler the
-   * session-list panel uses). PR-SEARCH-2.6: turnId scroll-into-view
-   * is deferred to PR-SEARCH-2.7; this packet only selects the session.
+   * search hit so the palette can jump to the matched session and,
+   * when the backend supplied one, scroll to the matched turn.
    */
-  onSelectSession?: (sessionId: string) => void;
+  onSelectSession?: (sessionId: string, turnId?: string) => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
