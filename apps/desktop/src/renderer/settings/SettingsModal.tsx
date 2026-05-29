@@ -1902,30 +1902,8 @@ function ThemeSettingsPage(props: {
         ))}
       </div>
 
-      <h3 className="settingsSubheading">通知位置</h3>
-      <div className="settingsToastPositionGrid" role="radiogroup" aria-label="通知位置">
-        {TOAST_POSITION_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={currentToastPosition === option.value}
-            data-active={currentToastPosition === option.value}
-            data-position={option.value}
-            className="settingsToastPositionOption"
-            onClick={() => void setToastPosition(option.value)}
-            title={option.label}
-          >
-            <span className="settingsToastPositionSwatch" aria-hidden="true">
-              <span className="settingsToastPositionDot" />
-            </span>
-            <span className="settingsToastPositionLabel">{option.label}</span>
-          </button>
-        ))}
-      </div>
-
       <p className="settingsHelpText">
-        切换会立即生效，并保存在 <code className="maka-empty-state-code">settings.json</code> 里下次启动延续。
+        切换会立即生效，并保存在 <code className="maka-empty-state-code">settings.json</code> 里下次启动延续。通知统一显示在屏幕右下角（与 macOS / Windows 系统通知一致）。
       </p>
     </div>
   );
