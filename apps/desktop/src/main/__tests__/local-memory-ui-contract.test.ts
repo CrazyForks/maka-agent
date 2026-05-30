@@ -170,10 +170,18 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('tells the user when saving MEMORY.md redacted sensitive fields', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const css = await readRepo('apps/desktop/src/renderer/styles.css');
     const saveBlock = src.match(/async function save\(\) \{[\s\S]*?\n  \}\n\n  async function reset/)?.[0] ?? '';
+    const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
     assert.match(saveBlock, /const redacted = next\.content !== draft/);
     assert.match(saveBlock, /已保存并遮蔽敏感字段/);
     assert.match(saveBlock, /token、API key 或密码/);
+    assert.match(pageBlock, /const memoryDraftHasSensitiveFields = useMemo\(\(\) => redactSecrets\(draft\) !== draft, \[draft\]\)/);
+    assert.match(pageBlock, /settingsMemoryDraftWarning/);
+    assert.match(pageBlock, /role="status"/);
+    assert.match(pageBlock, /草稿含疑似敏感字段/);
+    assert.match(pageBlock, /保存时会先遮蔽疑似 token、API key 或密码，再写入 MEMORY\.md/);
+    assert.match(css, /\.settingsMemoryDraftWarning/);
   });
 });

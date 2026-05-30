@@ -9919,6 +9919,26 @@ button:active {
   outline-offset: 2px;
 }
 
+.settingsMemoryDraftWarning {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid oklch(from var(--warning) l c h / 0.38);
+  border-radius: 8px;
+  background: oklch(from var(--warning) l c h / 0.09);
+}
+
+.settingsMemoryDraftWarning strong {
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.settingsMemoryDraftWarning small {
+  color: var(--foreground-70);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .settingsMemoryEditor {
   display: grid;
   gap: 8px;
