@@ -2588,6 +2588,7 @@ function MemorySettingsPage(props: {
       ? `预览已按 ${LOCAL_MEMORY_PROMPT_MAX_CHARS.toLocaleString('zh-CN')} 字符上限截断`
       : `预览 ${localMemoryPromptPreview.length.toLocaleString('zh-CN')} / ${LOCAL_MEMORY_PROMPT_MAX_CHARS.toLocaleString('zh-CN')} 字符`
     : `prompt 上限 ${LOCAL_MEMORY_PROMPT_MAX_CHARS.toLocaleString('zh-CN')} 字符`;
+  const memoryDraftHasSensitiveFields = useMemo(() => redactSecrets(draft) !== draft, [draft]);
 
   async function copyLocalMemoryPromptPreview() {
     if (!localMemoryPromptPreview) return;
@@ -2793,6 +2794,13 @@ function MemorySettingsPage(props: {
           添加到草稿
         </button>
       </div>
+
+      {memoryDraftHasSensitiveFields && (
+        <div className="settingsMemoryDraftWarning" role="status">
+          <strong>草稿含疑似敏感字段</strong>
+          <small>保存时会先遮蔽疑似 token、API key 或密码，再写入 MEMORY.md。</small>
+        </div>
+      )}
 
       <label className="settingsMemoryEditor">
         <span>文件内容</span>
