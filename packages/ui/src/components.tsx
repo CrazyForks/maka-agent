@@ -518,6 +518,7 @@ export function SessionListPanel(props: {
         <button
           className="maka-nav-row"
           type="button"
+          data-maka-search-trigger="true"
           onClick={() => selectModule('search')}
           aria-haspopup="dialog"
         >
