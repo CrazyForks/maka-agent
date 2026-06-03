@@ -313,6 +313,23 @@ name: Writer
     assert.match(main, /ipcMain\.handle\('skills:open'/);
   });
 
+  it('surfaces thrown Skills IPC failures as toasts', async () => {
+    const repoRoot = process.cwd().endsWith('apps/desktop')
+      ? join(process.cwd(), '..', '..')
+      : process.cwd();
+    const renderer = await readFile(join(repoRoot, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
+    const createBlock = renderer.match(/async function createSkillTemplate\(\)[\s\S]*?async function openSkillsFolder/)?.[0] ?? '';
+    const folderBlock = renderer.match(/async function openSkillsFolder\(\)[\s\S]*?async function openSkill/)?.[0] ?? '';
+    const openBlock = renderer.match(/async function openSkill\(skillId: string\)[\s\S]*?\n  \}/)?.[0] ?? '';
+
+    assert.match(createBlock, /try \{[\s\S]*window\.maka\.skills\.createStarter\(\)/);
+    assert.match(createBlock, /catch \(error\) \{[\s\S]*toastApi\.error\('无法创建示例技能', cleanErrorMessage\(error\)\)/);
+    assert.match(folderBlock, /try \{[\s\S]*window\.maka\.app\.openPath\('skills'\)/);
+    assert.match(folderBlock, /catch \(error\) \{[\s\S]*toastApi\.error\(`无法打开\$\{openPathActionLabel\('skills'\)\}`, cleanErrorMessage\(error\)\)/);
+    assert.match(openBlock, /try \{[\s\S]*window\.maka\.skills\.open\(skillId, 'file'\)/);
+    assert.match(openBlock, /catch \(error\) \{[\s\S]*toastApi\.error\('无法打开 Skill', cleanErrorMessage\(error\)\)/);
+  });
+
   it('parses inline and list-style allowed-tools front matter', () => {
     assert.deepEqual(
       parseSkillFrontMatter(`---
