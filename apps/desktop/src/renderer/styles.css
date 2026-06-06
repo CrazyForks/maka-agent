@@ -718,22 +718,35 @@ button:active {
   text-align: left;
   font-size: 13px;
   line-height: 1.45;
+  /* PR-CHAT-SIDEBAR-POLISH-1: cheap transition so hover and active
+     state changes feel intentional rather than instant snaps. */
+  transition:
+    background 140ms var(--ease-out, ease-out),
+    color 140ms var(--ease-out, ease-out),
+    box-shadow 140ms var(--ease-out, ease-out);
 }
 
 .maka-nav-row:hover {
-  background: oklch(from var(--foreground) l c h / 0.03);
+  /* Slightly stronger hover tint so the affordance is visible at a
+     glance — the previous 0.03 was visible only in a perfectly lit
+     monitor at 100% brightness. */
+  background: oklch(from var(--foreground) l c h / 0.05);
+  color: var(--foreground);
 }
 
 .maka-nav-row[data-active="true"] {
-  /* PR-UI-LAYOUT-8: filter tabs (Chats / Pinned / Archived) now use
-   * a soft accent tint for the active state instead of a neutral
-   * `--foreground` tint. Matches the settings nav active state
-   * (PR-UI-LAYOUT-6) so navigation feels coherent across surfaces.
-   * The active row also picks up the accent color on the icon so
-   * the selection lands fast. */
-  background: oklch(from var(--accent) l c h / 0.06);
+  /* PR-UI-LAYOUT-8 + PR-CHAT-SIDEBAR-POLISH-1: the soft accent tint
+     stays, but pair it with an inset left accent bar (the standard
+     active-item marker — same pattern as the search modal result).
+     A glance at the sidebar should make the current session
+     unambiguous, even in low-contrast / glance contexts.
+
+     Matches the settings nav active state (PR-UI-LAYOUT-6) so
+     navigation feels coherent across surfaces. */
+  background: oklch(from var(--accent) l c h / 0.08);
   color: var(--foreground);
   font-weight: 500;
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 .maka-nav-row[data-active="true"] .maka-nav-icon {
   color: var(--accent);
