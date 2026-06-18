@@ -1508,7 +1508,7 @@ function PlanReminderPanel(props: {
         <div className="maka-plan-form-title">{isEditing ? '编辑提醒' : '新建提醒'}</div>
         <label className="maka-plan-field">
           <span>标题</span>
-          <input
+          <Input
             value={title}
             onChange={(event) => setTitle(event.currentTarget.value)}
             maxLength={120}
@@ -1519,7 +1519,7 @@ function PlanReminderPanel(props: {
         </label>
         <label className="maka-plan-field">
           <span>时间</span>
-          <input
+          <Input
             value={runAtLocal}
             onChange={(event) => setRunAtLocal(event.currentTarget.value)}
             type="text"
@@ -1538,15 +1538,16 @@ function PlanReminderPanel(props: {
             ['tomorrow-morning', '明天 9 点'],
             ['next-monday', '下周一 9 点'],
           ].map(([preset, label]) => (
-            <button
+            <UiButton
               key={preset}
               type="button"
+              variant="secondary"
               className="maka-plan-preset"
               onClick={() => applyRunAtPreset(preset as 'ten-minutes' | 'one-hour' | 'tomorrow-morning' | 'next-monday')}
               disabled={formInteractionDisabled}
             >
               {label}
-            </button>
+            </UiButton>
           ))}
         </div>
         <label className="maka-plan-field">
@@ -1566,7 +1567,7 @@ function PlanReminderPanel(props: {
         {recurrence === 'cron' && (
           <label className="maka-plan-field">
             <span>Cron</span>
-            <input
+            <Input
               value={cronExpression}
               onChange={(event) => setCronExpression(event.currentTarget.value)}
               maxLength={80}
@@ -1609,7 +1610,7 @@ function PlanReminderPanel(props: {
             </p>
             <label className="maka-plan-field">
               <span>Chat ID</span>
-              <input
+              <Input
                 value={deliveryChatId}
                 onChange={(event) => setDeliveryChatId(event.currentTarget.value)}
                 maxLength={160}
@@ -1621,7 +1622,7 @@ function PlanReminderPanel(props: {
         )}
         <label className="maka-plan-field">
           <span>备注</span>
-          <textarea
+          <UiTextarea
             value={note}
             onChange={(event) => setNote(event.currentTarget.value)}
             maxLength={1000}
@@ -1655,7 +1656,7 @@ function PlanReminderPanel(props: {
       <div className="maka-plan-list" aria-label="计划提醒列表">
         <label className="maka-plan-search">
           <span>搜索计划提醒</span>
-          <input
+          <Input
             value={listQuery}
             onChange={(event) => setListQuery(event.currentTarget.value)}
             maxLength={120}
@@ -1665,7 +1666,7 @@ function PlanReminderPanel(props: {
         {normalizedListQuery && (
           <div className="maka-plan-search-summary" role="status" aria-live="polite">
             <span>找到 {searchMatchedReminders.length} 个匹配提醒</span>
-            <button type="button" onClick={() => setListQuery('')}>清除搜索</button>
+            <UiButton type="button" variant="ghost" size="sm" onClick={() => setListQuery('')}>清除搜索</UiButton>
           </div>
         )}
         <div className="maka-plan-filters" aria-label="计划提醒筛选">
@@ -1675,9 +1676,10 @@ function PlanReminderPanel(props: {
             ['paused', '已暂停'],
             ['completed', '已完成'],
           ].map(([value, label]) => (
-            <button
+            <UiButton
               key={value}
               type="button"
+              variant="ghost"
               className="maka-plan-filter"
               data-active={listFilter === value ? 'true' : 'false'}
               aria-pressed={listFilter === value}
@@ -1685,7 +1687,7 @@ function PlanReminderPanel(props: {
             >
               <span>{label}</span>
               <span>{filterCounts[value as PlanReminderListFilter]}</span>
-            </button>
+            </UiButton>
           ))}
         </div>
         {props.reminders.length === 0 ? (
@@ -1755,69 +1757,76 @@ function PlanReminderPanel(props: {
                 )}
               </div>
               <div className="maka-plan-card-actions">
-                <button
+                <UiButton
                   type="button"
+                  variant="ghost"
                   className="maka-plan-action"
                   onClick={() => editReminder(reminder)}
                   disabled={submitPending || reminderActionPending || reminder.status === 'completed'}
                   title="编辑提醒"
                 >
                   编辑
-                </button>
-                <button
+                </UiButton>
+                <UiButton
                   type="button"
+                  variant="ghost"
                   className="maka-plan-action"
                   onClick={() => duplicateReminder(reminder)}
                   disabled={submitPending || reminderActionPending}
                   title="复制为新提醒"
                 >
                   复制
-                </button>
-                <button
+                </UiButton>
+                <UiButton
                   type="button"
+                  variant="ghost"
                   className="maka-plan-action"
                   onClick={() => void runPlanReminderAction(`${reminder.id}:trigger`, () => props.onTriggerNow?.(reminder.id))}
                   disabled={reminderActionPending || !reminder.enabled}
                   title="立即触发一次"
                 >
                   {pendingActionKeys.has(`${reminder.id}:trigger`) ? '触发中…' : '立即触发'}
-                </button>
-                <button
+                </UiButton>
+                <UiButton
                   type="button"
+                  variant="ghost"
                   className="maka-plan-action"
                   onClick={() => void runPlanReminderAction(`${reminder.id}:snooze`, () => props.onSnooze?.(reminder.id))}
                   disabled={reminderActionPending || !reminder.enabled || reminder.status !== 'scheduled' || typeof reminder.nextRunAt !== 'number'}
                   title="延后 10 分钟"
                 >
                   {pendingActionKeys.has(`${reminder.id}:snooze`) ? '延后中…' : '延后 10 分钟'}
-                </button>
-                <button
+                </UiButton>
+                <UiButton
                   type="button"
+                  variant="ghost"
                   className="maka-plan-action"
                   onClick={() => void runPlanReminderAction(`${reminder.id}:clear-runs`, () => props.onClearRunHistory?.(reminder.id))}
                   disabled={reminderActionPending || reminder.runs.length === 0 || reminder.status === 'completed'}
                   title="清空最近执行记录"
                 >
                   {pendingActionKeys.has(`${reminder.id}:clear-runs`) ? '清空中…' : '清空记录'}
-                </button>
-                <button
+                </UiButton>
+                <UiButton
                   type="button"
+                  variant="ghost"
                   className="maka-plan-action"
                   onClick={() => void runPlanReminderAction(`${reminder.id}:toggle`, () => props.onToggle?.(reminder.id, !reminder.enabled))}
                   disabled={reminderActionPending || reminder.status === 'completed'}
                   title={reminder.enabled ? '暂停提醒' : '启用提醒'}
                 >
                   {pendingActionKeys.has(`${reminder.id}:toggle`) ? (reminder.enabled ? '暂停中…' : '启用中…') : (reminder.enabled ? '暂停' : '启用')}
-                </button>
-                <button
+                </UiButton>
+                <UiButton
                   type="button"
+                  variant="destructive"
                   className="maka-plan-action maka-plan-action-danger"
                   onClick={() => void runPlanReminderAction(`${reminder.id}:delete`, () => props.onDelete?.(reminder.id))}
                   disabled={reminderActionPending}
                   title="删除提醒"
                 >
                   {pendingActionKeys.has(`${reminder.id}:delete`) ? '删除中…' : '删除'}
-                </button>
+                </UiButton>
               </div>
             </article>
             );

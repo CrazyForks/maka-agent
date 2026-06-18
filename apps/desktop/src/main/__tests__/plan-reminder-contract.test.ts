@@ -111,6 +111,10 @@ describe('Plan reminder MVP contract', () => {
     ]);
 
     const panelBlock = ui.match(/function PlanReminderPanel[\s\S]*?function comparePlanReminderForDisplay/)?.[0] ?? '';
+    assert.match(ui, /Input,[\s\S]*Textarea as UiTextarea,[\s\S]*cn,/, 'plan reminder text controls must use shared Input/Textarea imports');
+    assert.doesNotMatch(panelBlock, /<input\b/, 'PlanReminderPanel text fields must use shared Input');
+    assert.doesNotMatch(panelBlock, /<textarea\b/, 'PlanReminderPanel notes must use shared Textarea');
+    assert.doesNotMatch(panelBlock, /<button\b/, 'PlanReminderPanel actions must use shared Button');
     assert.match(panelBlock, /const \[submitPending, setSubmitPending\] = useState\(false\)/, 'plan form must gate duplicate async submits');
     assert.match(panelBlock, /const submitDisabled = !canCreate \|\| submitPending/, 'pending create/save must disable the submit button');
     assert.match(panelBlock, /const formInteractionDisabled = submitPending/, 'pending create/save must also freeze the editable draft controls');
