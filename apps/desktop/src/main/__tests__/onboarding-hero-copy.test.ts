@@ -313,7 +313,7 @@ describe('OnboardingHero Quick Chat draft lifecycle', () => {
     const checklist = await readFile(new URL('../../../src/renderer/FirstRunChecklist.tsx', import.meta.url), 'utf8');
 
     assert.match(hero, /import \{ Button, Textarea, appendPromptContextDraft,/);
-    assert.match(checklist, /import \{ Button, useToast \} from '@maka\/ui';/);
+    assert.match(checklist, /import \{[^}]*\bButton\b[^}]*\buseToast\b[^}]*\} from '@maka\/ui';/);
     assert.doesNotMatch(hero, /<button\b/, 'OnboardingHero actions must use the shared Button primitive');
     assert.doesNotMatch(hero, /<textarea\b/, 'OnboardingHero quick chat must use the shared Textarea primitive');
     assert.doesNotMatch(hero, /className="maka-button/, 'OnboardingHero must not keep legacy maka-button styling on migrated actions');
