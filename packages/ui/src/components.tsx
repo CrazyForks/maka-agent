@@ -25,6 +25,7 @@ import {
   Hourglass,
   Loader2,
   MessageSquare,
+  MoreHorizontal,
   Paperclip,
   Pencil,
   Pin,
@@ -118,11 +119,17 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
+  Switch,
+  TabsList,
+  TabsPanel,
+  TabsRoot,
+  TabsTrigger,
   Textarea as UiTextarea,
   cn,
 } from './ui.js';
 import { Alert, AlertDescription, AlertTitle } from './coss/alert.js';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './coss/empty.js';
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from './coss/menu.js';
 
 /**
  * PR-SIDEBAR-IA-0 Phase 2 + fixup (xuan msg `47e204f2`, `91401163`;
@@ -1403,6 +1410,8 @@ function PlanReminderPanel(props: {
   onDelete?(id: string): void | Promise<void>;
 }) {
   type PlanReminderListFilter = 'all' | PlanReminderStatus;
+  type PlanReminderView = 'tasks' | 'runs';
+  type PlanReminderRunRange = 'day' | 'week' | 'month' | 'all';
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [runAtLocal, setRunAtLocal] = useState(() => toPlanReminderDateTimeInputValue(Date.now() + 60 * 60 * 1000));
@@ -1416,6 +1425,9 @@ function PlanReminderPanel(props: {
   const [pendingActionKeys, setPendingActionKeys] = useState<ReadonlySet<string>>(() => new Set());
   const planReminderMountedRef = useRef(true);
   const pendingActionKeysRef = useRef<Set<string>>(new Set());
+  const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [planView, setPlanView] = useState<PlanReminderView>('tasks');
+  const [runRange, setRunRange] = useState<PlanReminderRunRange>('week');
   const [listFilter, setListFilter] = useState<PlanReminderListFilter>('all');
   const [listQuery, setListQuery] = useState('');
   const parsedRunAt = Date.parse(runAtLocal);
@@ -1427,6 +1439,11 @@ function PlanReminderPanel(props: {
     ? searchMatchedReminders
     : searchMatchedReminders.filter((reminder) => reminder.status === listFilter);
   const sortedReminders = [...visibleReminders].sort(comparePlanReminderForDisplay);
+  const runRangeStart = planReminderRunRangeStart(runRange, Date.now());
+  const visibleRunEntries = props.reminders
+    .flatMap((reminder) => reminder.runs.map((run) => ({ reminder, run })))
+    .filter((entry) => runRangeStart === null || entry.run.at >= runRangeStart)
+    .sort((a, b) => b.run.at - a.run.at);
   const filterCounts: Record<PlanReminderListFilter, number> = {
     all: searchMatchedReminders.length,
     scheduled: searchMatchedReminders.filter((reminder) => reminder.status === 'scheduled').length,
@@ -1473,6 +1490,17 @@ function PlanReminderPanel(props: {
     setEditingId(null);
   }
 
+  function openCreateReminderDialog() {
+    resetForm();
+    setFormDialogOpen(true);
+  }
+
+  function closeReminderDialog() {
+    if (submitPending) return;
+    setFormDialogOpen(false);
+    resetForm();
+  }
+
   function editReminder(reminder: PlanReminder) {
     setEditingId(reminder.id);
     setTitle(reminder.title);
@@ -1488,6 +1516,7 @@ function PlanReminderPanel(props: {
       setDeliveryPlatform('telegram');
       setDeliveryChatId('');
     }
+    setFormDialogOpen(true);
   }
 
   function duplicateReminder(reminder: PlanReminder) {
@@ -1505,6 +1534,7 @@ function PlanReminderPanel(props: {
       setDeliveryPlatform('telegram');
       setDeliveryChatId('');
     }
+    setFormDialogOpen(true);
   }
 
   function applyRunAtPreset(preset: 'ten-minutes' | 'one-hour' | 'tomorrow-morning' | 'next-monday') {
@@ -1530,7 +1560,10 @@ function PlanReminderPanel(props: {
           ...input,
           ...(input.note ? { note: input.note } : {}),
         });
-      if (result !== false && planReminderMountedRef.current) resetForm();
+      if (result !== false && planReminderMountedRef.current) {
+        resetForm();
+        setFormDialogOpen(false);
+      }
     } finally {
       if (planReminderMountedRef.current) setSubmitPending(false);
     }
@@ -1557,344 +1590,449 @@ function PlanReminderPanel(props: {
 
   return (
     <div className="maka-plan-panel">
-      <Alert variant="info" className="maka-plan-system-alert">
-        <Clock strokeWidth={1.75} aria-hidden="true" />
-        <AlertTitle>计划提醒会在本机唤醒时运行</AlertTitle>
-        <AlertDescription>
-          Maka 会保留执行记录；重复提醒、机器人投递和手动触发都走同一套计划队列。
-        </AlertDescription>
-      </Alert>
-      <form className="maka-plan-form" onSubmit={submit} aria-busy={submitPending ? 'true' : undefined}>
-        <div className="maka-plan-form-title">{isEditing ? '编辑提醒' : '新建提醒'}</div>
-        <label className="maka-plan-field">
-          <span>标题</span>
-          <Input
-            value={title}
-            onChange={(event) => setTitle(event.currentTarget.value)}
-            maxLength={120}
-            data-maka-plan-title-input="true"
-            placeholder="例如：明天复盘项目进度"
-            disabled={formInteractionDisabled}
-          />
-        </label>
-        <label className="maka-plan-field">
-          <span>时间</span>
-          <Input
-            value={runAtLocal}
-            onChange={(event) => setRunAtLocal(event.currentTarget.value)}
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="2026-06-05 13:44"
-            aria-label="提醒时间"
-            disabled={formInteractionDisabled}
-          />
-        </label>
-        <div className="maka-plan-presets" aria-label="快速设置提醒时间">
-          {[
-            ['ten-minutes', '10 分钟后'],
-            ['one-hour', '1 小时后'],
-            ['tomorrow-morning', '明天 9 点'],
-            ['next-monday', '下周一 9 点'],
-          ].map(([preset, label]) => (
-            <UiButton
-              key={preset}
-              type="button"
-              variant="secondary"
-              className="maka-plan-preset"
-              onClick={() => applyRunAtPreset(preset as 'ten-minutes' | 'one-hour' | 'tomorrow-morning' | 'next-monday')}
-              disabled={formInteractionDisabled}
-            >
-              {label}
-            </UiButton>
-          ))}
-        </div>
-        <label className="maka-plan-field">
-          <span>重复</span>
-          <PlanReminderSelect
-            value={recurrence}
-            onChange={(value) => setRecurrence(value)}
-            disabled={formInteractionDisabled}
-            ariaLabel="重复"
-            options={[
-              ['none', '不重复'],
-              ['daily', '每天'],
-              ['weekly', '每周'],
-              ['monthly', '每月'],
-              ['cron', 'Cron'],
-            ] satisfies ReadonlyArray<readonly [PlanReminderRecurrence, string]>}
-          />
-        </label>
-        {recurrence === 'cron' && (
-          <label className="maka-plan-field">
-            <span>Cron</span>
-            <Input
-              value={cronExpression}
-              onChange={(event) => setCronExpression(event.currentTarget.value)}
-              maxLength={80}
-              placeholder="例如 0 9 * * 1-5"
-              disabled={formInteractionDisabled}
-            />
-          </label>
-        )}
-        <div className="maka-plan-delivery-grid">
-          <label className="maka-plan-field">
-            <span>投递</span>
-            <PlanReminderSelect
-              value={deliveryChannel}
-              onChange={(value) => setDeliveryChannel(value)}
-              disabled={formInteractionDisabled}
-              ariaLabel="投递"
-              options={[
-                ['local', '本地提醒'],
-                ['bot', '机器人聊天'],
-              ] satisfies ReadonlyArray<readonly [PlanReminderDeliveryTarget['channel'], string]>}
-            />
-          </label>
-          {deliveryChannel === 'bot' && (
-            <label className="maka-plan-field">
-              <span>平台</span>
-              <PlanReminderSelect
-                value={deliveryPlatform}
-                onChange={(value) => setDeliveryPlatform(value)}
-                disabled={formInteractionDisabled}
-                ariaLabel="平台"
-                options={BOT_DELIVERY_PROVIDERS.map((provider) => [provider, botDisplayLabel(provider)] as const)}
-              />
-            </label>
-          )}
-        </div>
-        {deliveryChannel === 'bot' && (
-          <>
-            <p className="maka-plan-delivery-help">
-              当前可投递到 {formatPlanDeliveryProviderList()}；其它机器人平台不会出现在投递目标里。
+      <div className="maka-plan-shell">
+        <div className="maka-plan-hero">
+          <div className="maka-plan-heading">
+            <p className="maka-plan-eyebrow">计划提醒</p>
+            <h2>定时任务</h2>
+            <p>
+              管理本机计划提醒、重复提醒和机器人投递；到点后会写入执行记录，方便复盘。
             </p>
-            <label className="maka-plan-field">
-              <span>Chat ID</span>
-              <Input
-                value={deliveryChatId}
-                onChange={(event) => setDeliveryChatId(event.currentTarget.value)}
-                maxLength={160}
-                placeholder="例如 Telegram chat_id"
+          </div>
+          <div className="maka-plan-top-actions" aria-label="计划提醒操作">
+            <UiButton type="button" variant="secondary" onClick={() => setPlanView('runs')}>
+              <Clock size={15} strokeWidth={1.75} aria-hidden="true" />
+              执行记录
+            </UiButton>
+            <UiButton type="button" onClick={openCreateReminderDialog}>
+              <Plus size={15} strokeWidth={1.75} aria-hidden="true" />
+              新建计划提醒
+            </UiButton>
+          </div>
+        </div>
+
+        <Alert variant="info" className="maka-plan-system-alert">
+          <Clock strokeWidth={1.75} aria-hidden="true" />
+          <AlertTitle>计划提醒会在本机唤醒时运行</AlertTitle>
+          <AlertDescription>
+            Maka 会保留执行记录；重复提醒、机器人投递和手动触发都走同一套计划队列。
+          </AlertDescription>
+        </Alert>
+
+        <TabsRoot
+          className="maka-plan-tabs"
+          value={planView}
+          onValueChange={(value) => {
+            if (value === 'tasks' || value === 'runs') setPlanView(value);
+          }}
+        >
+          <div className="maka-plan-tabs-bar">
+            <TabsList className="maka-plan-tabs-list" aria-label="计划提醒视图">
+              <TabsTrigger className="maka-plan-tab" value="tasks">
+                我的定时任务
+                <span>{props.reminders.length}</span>
+              </TabsTrigger>
+              <TabsTrigger className="maka-plan-tab" value="runs">
+                执行记录
+                <span>{visibleRunEntries.length}</span>
+              </TabsTrigger>
+            </TabsList>
+            {planView === 'tasks' ? (
+              <div className="maka-plan-toolbar" aria-label="计划提醒筛选">
+                <label className="maka-plan-search">
+                  <span>搜索计划提醒</span>
+                  <Input
+                    value={listQuery}
+                    onChange={(event) => setListQuery(event.currentTarget.value)}
+                    maxLength={120}
+                    placeholder="搜索标题、备注、投递或执行记录…"
+                  />
+                </label>
+                <label className="maka-plan-compact-select">
+                  <span>状态</span>
+                  <PlanReminderSelect
+                    value={listFilter}
+                    onChange={(value) => setListFilter(value)}
+                    ariaLabel="计划提醒筛选"
+                    options={[
+                      ['all', `全部 ${filterCounts.all}`],
+                      ['scheduled', `待触发 ${filterCounts.scheduled}`],
+                      ['paused', `已暂停 ${filterCounts.paused}`],
+                      ['completed', `已完成 ${filterCounts.completed}`],
+                    ] satisfies ReadonlyArray<readonly [PlanReminderListFilter, string]>}
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="maka-plan-toolbar maka-plan-toolbar-compact" aria-label="执行记录筛选">
+                <label className="maka-plan-compact-select">
+                  <span>范围</span>
+                  <PlanReminderSelect
+                    value={runRange}
+                    onChange={(value) => setRunRange(value)}
+                    ariaLabel="执行记录范围"
+                    options={[
+                      ['day', '今天'],
+                      ['week', '近 7 天'],
+                      ['month', '近 30 天'],
+                      ['all', '全部记录'],
+                    ] satisfies ReadonlyArray<readonly [PlanReminderRunRange, string]>}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+
+          <TabsPanel className="maka-plan-tab-panel" value="tasks">
+            {normalizedListQuery && (
+              <div className="maka-plan-search-summary" role="status" aria-live="polite">
+                <span>找到 {searchMatchedReminders.length} 个匹配提醒</span>
+                <UiButton type="button" variant="ghost" size="sm" onClick={() => setListQuery('')}>清除搜索</UiButton>
+              </div>
+            )}
+            {props.reminders.length === 0 ? (
+              <EmptyState
+                Icon={Clock}
+                title="等待创建计划提醒"
+                body="创建一次性或重复提醒；Maka 会持久化并在到点时记录执行结果。"
+                cta={{ label: '新建计划提醒', onClick: openCreateReminderDialog }}
+                extraClassName="maka-plan-empty"
+              />
+            ) : sortedReminders.length === 0 ? (
+              <EmptyState
+                Icon={Clock}
+                title={normalizedListQuery ? '没有匹配的提醒' : '当前筛选没有提醒'}
+                body={normalizedListQuery ? '调整搜索词，或切换状态筛选查看其他提醒。' : '切换筛选查看其他状态，或创建新的计划提醒。'}
+                secondaryCta={{ label: '清除搜索', onClick: () => setListQuery(''), disabled: !normalizedListQuery }}
+                extraClassName="maka-plan-empty"
+              />
+            ) : (
+              <div className="maka-plan-card-grid" aria-label="计划提醒列表">
+                {sortedReminders.map((reminder) => {
+                  const reminderActionPrefix = `${reminder.id}:`;
+                  const reminderActionPending = Array.from(pendingActionKeys).some((key) => key.startsWith(reminderActionPrefix));
+                  return (
+                    <article key={reminder.id} className="maka-plan-card" data-status={reminder.status}>
+                      <div className="maka-plan-card-chrome">
+                        <Switch
+                          checked={reminder.enabled}
+                          disabled={reminderActionPending || reminder.status === 'completed'}
+                          aria-label={reminder.enabled ? '暂停提醒' : '启用提醒'}
+                          onCheckedChange={() => void runPlanReminderAction(`${reminder.id}:toggle`, () => props.onToggle?.(reminder.id, !reminder.enabled))}
+                        />
+                        <Menu>
+                          <MenuTrigger
+                            className="maka-plan-card-menu-trigger"
+                            disabled={reminderActionPending}
+                            aria-label="提醒操作"
+                          >
+                            <MoreHorizontal size={16} strokeWidth={1.75} aria-hidden="true" />
+                          </MenuTrigger>
+                          <MenuPopup className="maka-plan-card-menu" align="end">
+                            <MenuItem
+                              onClick={() => editReminder(reminder)}
+                              disabled={submitPending || reminderActionPending || reminder.status === 'completed'}
+                            >
+                              <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />
+                              编辑
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => duplicateReminder(reminder)}
+                              disabled={submitPending || reminderActionPending}
+                            >
+                              <Copy size={14} strokeWidth={1.75} aria-hidden="true" />
+                              复制
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => void runPlanReminderAction(`${reminder.id}:trigger`, () => props.onTriggerNow?.(reminder.id))}
+                              disabled={reminderActionPending || !reminder.enabled}
+                            >
+                              <RefreshCcw size={14} strokeWidth={1.75} aria-hidden="true" />
+                              {pendingActionKeys.has(`${reminder.id}:trigger`) ? '触发中…' : '立即触发'}
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => void runPlanReminderAction(`${reminder.id}:snooze`, () => props.onSnooze?.(reminder.id))}
+                              disabled={reminderActionPending || !reminder.enabled || reminder.status !== 'scheduled' || typeof reminder.nextRunAt !== 'number'}
+                            >
+                              <Clock size={14} strokeWidth={1.75} aria-hidden="true" />
+                              {pendingActionKeys.has(`${reminder.id}:snooze`) ? '延后中…' : '延后 10 分钟'}
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => void runPlanReminderAction(`${reminder.id}:clear-runs`, () => props.onClearRunHistory?.(reminder.id))}
+                              disabled={reminderActionPending || reminder.runs.length === 0 || reminder.status === 'completed'}
+                            >
+                              <ArchiveRestore size={14} strokeWidth={1.75} aria-hidden="true" />
+                              {pendingActionKeys.has(`${reminder.id}:clear-runs`) ? '清空中…' : '清空记录'}
+                            </MenuItem>
+                            <MenuItem
+                              variant="destructive"
+                              onClick={() => void runPlanReminderAction(`${reminder.id}:delete`, () => props.onDelete?.(reminder.id))}
+                              disabled={reminderActionPending}
+                            >
+                              <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                              {pendingActionKeys.has(`${reminder.id}:delete`) ? '删除中…' : '删除'}
+                            </MenuItem>
+                          </MenuPopup>
+                        </Menu>
+                      </div>
+                      <div className="maka-plan-card-main">
+                        <div className="maka-plan-card-title-row">
+                          <h3 className="maka-plan-card-title">{reminder.title}</h3>
+                          <Badge variant={reminder.status === 'scheduled' ? 'success' : reminder.status === 'paused' ? 'warning' : 'secondary'}>
+                            {planReminderStatusLabel(reminder.status)}
+                          </Badge>
+                        </div>
+                        <p className="maka-plan-card-note">
+                          {reminder.note || `触发后投递到：${formatPlanReminderDeliveryTarget(reminder.delivery)}`}
+                        </p>
+                        {reminder.lastRun && (
+                          <div className="maka-plan-card-run">
+                            {runStatusLabel(reminder.lastRun.status)}：{reminder.lastRun.message}
+                          </div>
+                        )}
+                      </div>
+                      <div className="maka-plan-card-divider" aria-hidden="true" />
+                      <div className="maka-plan-card-footer">
+                        <span className="maka-plan-card-chip">
+                          <Clock size={13} strokeWidth={1.75} aria-hidden="true" />
+                          {reminder.nextRunAt ? (
+                            <>
+                              下次触发：{formatReminderTime(reminder.nextRunAt)}
+                              <span className="maka-plan-card-countdown">{formatReminderCountdown(reminder.nextRunAt)}</span>
+                            </>
+                          ) : reminder.lastRun ? (
+                            `最近 ${formatReminderTime(reminder.lastRun.at)}`
+                          ) : (
+                            '未安排'
+                          )}
+                        </span>
+                        <span className="maka-plan-card-chip">
+                          <Repeat size={13} strokeWidth={1.75} aria-hidden="true" />
+                          {formatPlanRecurrence(reminder)}
+                        </span>
+                        <span className="maka-plan-card-chip">
+                          <MessageSquare size={13} strokeWidth={1.75} aria-hidden="true" />
+                          {formatPlanReminderDeliveryTarget(reminder.delivery)}
+                        </span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </TabsPanel>
+
+          <TabsPanel className="maka-plan-tab-panel" value="runs">
+            {visibleRunEntries.length === 0 ? (
+              <EmptyState
+                Icon={Clock}
+                title="暂无执行记录"
+                body="提醒触发、手动执行或投递失败后，会在这里保留最近记录。"
+                extraClassName="maka-plan-empty maka-plan-runs-empty"
+              />
+            ) : (
+              <div className="maka-plan-run-list" aria-label="计划提醒执行记录">
+                {visibleRunEntries.map(({ reminder, run }) => (
+                  <article key={`${reminder.id}:${run.id}`} className="maka-plan-run-row">
+                    <div className="maka-plan-run-status" data-status={run.status}>
+                      {runStatusLabel(run.status)}
+                    </div>
+                    <div className="maka-plan-run-main">
+                      <strong>{reminder.title}</strong>
+                      <span>{run.message}</span>
+                    </div>
+                    <time>{formatReminderTime(run.at)}</time>
+                  </article>
+                ))}
+              </div>
+            )}
+          </TabsPanel>
+        </TabsRoot>
+      </div>
+
+      <DialogRoot
+        open={formDialogOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setFormDialogOpen(true);
+          } else {
+            closeReminderDialog();
+          }
+        }}
+      >
+        <DialogContent
+          className="maka-plan-dialog w-[min(92vw,680px)] p-0"
+          aria-labelledby="maka-plan-dialog-title"
+          showClose={false}
+        >
+          <form className="maka-plan-form" onSubmit={submit} aria-busy={submitPending ? 'true' : undefined}>
+            <header className="maka-plan-form-header">
+              <div>
+                <p className="maka-plan-eyebrow">计划提示词</p>
+                <h3 id="maka-plan-dialog-title" className="maka-plan-form-title">{isEditing ? '编辑提醒' : '新建提醒'}</h3>
+              </div>
+              <DialogClose
+                render={<UiButton variant="quiet" size="icon-sm" />}
+                type="button"
+                onClick={closeReminderDialog}
+                disabled={formInteractionDisabled}
+                aria-label="关闭计划提醒表单"
+              >
+                <X size={16} strokeWidth={1.8} aria-hidden="true" />
+              </DialogClose>
+            </header>
+            <div className="maka-plan-form-grid">
+              <label className="maka-plan-field">
+                <span>标题</span>
+                <Input
+                  value={title}
+                  onChange={(event) => setTitle(event.currentTarget.value)}
+                  maxLength={120}
+                  data-maka-plan-title-input="true"
+                  placeholder="例如：明天复盘项目进度"
+                  disabled={formInteractionDisabled}
+                />
+              </label>
+              <label className="maka-plan-field">
+                <span>时间</span>
+                <Input
+                  value={runAtLocal}
+                  onChange={(event) => setRunAtLocal(event.currentTarget.value)}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="2026-06-05 13:44"
+                  aria-label="提醒时间"
+                  disabled={formInteractionDisabled}
+                />
+              </label>
+            </div>
+            <div className="maka-plan-presets" aria-label="快速设置提醒时间">
+              {[
+                ['ten-minutes', '10 分钟后'],
+                ['one-hour', '1 小时后'],
+                ['tomorrow-morning', '明天 9 点'],
+                ['next-monday', '下周一 9 点'],
+              ].map(([preset, label]) => (
+                <UiButton
+                  key={preset}
+                  type="button"
+                  variant="secondary"
+                  className="maka-plan-preset"
+                  onClick={() => applyRunAtPreset(preset as 'ten-minutes' | 'one-hour' | 'tomorrow-morning' | 'next-monday')}
+                  disabled={formInteractionDisabled}
+                >
+                  {label}
+                </UiButton>
+              ))}
+            </div>
+            <div className="maka-plan-form-grid">
+              <label className="maka-plan-field">
+                <span>重复</span>
+                <PlanReminderSelect
+                  value={recurrence}
+                  onChange={(value) => setRecurrence(value)}
+                  disabled={formInteractionDisabled}
+                  ariaLabel="重复"
+                  options={[
+                    ['none', '不重复'],
+                    ['daily', '每天'],
+                    ['weekly', '每周'],
+                    ['monthly', '每月'],
+                    ['cron', 'Cron'],
+                  ] satisfies ReadonlyArray<readonly [PlanReminderRecurrence, string]>}
+                />
+              </label>
+              <label className="maka-plan-field">
+                <span>投递</span>
+                <PlanReminderSelect
+                  value={deliveryChannel}
+                  onChange={(value) => setDeliveryChannel(value)}
+                  disabled={formInteractionDisabled}
+                  ariaLabel="投递"
+                  options={[
+                    ['local', '本地提醒'],
+                    ['bot', '机器人聊天'],
+                  ] satisfies ReadonlyArray<readonly [PlanReminderDeliveryTarget['channel'], string]>}
+                />
+              </label>
+            </div>
+            {recurrence === 'cron' && (
+              <label className="maka-plan-field">
+                <span>Cron</span>
+                <Input
+                  value={cronExpression}
+                  onChange={(event) => setCronExpression(event.currentTarget.value)}
+                  maxLength={80}
+                  placeholder="例如 0 9 * * 1-5"
+                  disabled={formInteractionDisabled}
+                />
+              </label>
+            )}
+            {deliveryChannel === 'bot' && (
+              <>
+                <div className="maka-plan-delivery-grid">
+                  <label className="maka-plan-field">
+                    <span>平台</span>
+                    <PlanReminderSelect
+                      value={deliveryPlatform}
+                      onChange={(value) => setDeliveryPlatform(value)}
+                      disabled={formInteractionDisabled}
+                      ariaLabel="平台"
+                      options={BOT_DELIVERY_PROVIDERS.map((provider) => [provider, botDisplayLabel(provider)] as const)}
+                    />
+                  </label>
+                  <label className="maka-plan-field">
+                    <span>Chat ID</span>
+                    <Input
+                      value={deliveryChatId}
+                      onChange={(event) => setDeliveryChatId(event.currentTarget.value)}
+                      maxLength={160}
+                      placeholder="例如 Telegram chat_id"
+                      disabled={formInteractionDisabled}
+                    />
+                  </label>
+                </div>
+                <p className="maka-plan-delivery-help">
+                  当前可投递到 {formatPlanDeliveryProviderList()}；其它机器人平台不会出现在投递目标里。
+                </p>
+              </>
+            )}
+            <label className="maka-plan-field maka-plan-prompt-field">
+              <span>备注</span>
+              <UiTextarea
+                value={note}
+                onChange={(event) => setNote(event.currentTarget.value)}
+                maxLength={1000}
+                rows={5}
+                placeholder="可选：补充需要提醒的上下文"
                 disabled={formInteractionDisabled}
               />
             </label>
-          </>
-        )}
-        <label className="maka-plan-field">
-          <span>备注</span>
-          <UiTextarea
-            value={note}
-            onChange={(event) => setNote(event.currentTarget.value)}
-            maxLength={1000}
-            rows={3}
-            placeholder="可选：补充需要提醒的上下文"
-            disabled={formInteractionDisabled}
-          />
-        </label>
-        {validationMessage && (
-          <p className="maka-plan-validation" role="status" aria-live="polite">
-            {validationMessage}
-          </p>
-        )}
-        <UiButton className="maka-button maka-plan-submit" type="submit" disabled={submitDisabled}>
-          {isEditing ? <Check size={14} strokeWidth={1.75} aria-hidden="true" /> : <Plus size={14} strokeWidth={1.75} aria-hidden="true" />}
-          <span>{submitPending ? (isEditing ? '保存中…' : '创建中…') : (isEditing ? '保存提醒' : '创建提醒')}</span>
-        </UiButton>
-        {isEditing && (
-          <UiButton
-            className="maka-button secondary maka-plan-submit"
-            variant="secondary"
-            type="button"
-            onClick={resetForm}
-            disabled={formInteractionDisabled}
-          >
-            取消编辑
-          </UiButton>
-        )}
-      </form>
-
-      <div className="maka-plan-list" aria-label="计划提醒列表">
-        <label className="maka-plan-search">
-          <span>搜索计划提醒</span>
-          <Input
-            value={listQuery}
-            onChange={(event) => setListQuery(event.currentTarget.value)}
-            maxLength={120}
-            placeholder="搜索标题、备注、投递或执行记录…"
-          />
-        </label>
-        {normalizedListQuery && (
-          <div className="maka-plan-search-summary" role="status" aria-live="polite">
-            <span>找到 {searchMatchedReminders.length} 个匹配提醒</span>
-            <UiButton type="button" variant="ghost" size="sm" onClick={() => setListQuery('')}>清除搜索</UiButton>
-          </div>
-        )}
-        <div className="maka-plan-filters" aria-label="计划提醒筛选">
-          {[
-            ['all', '全部'],
-            ['scheduled', '待触发'],
-            ['paused', '已暂停'],
-            ['completed', '已完成'],
-          ].map(([value, label]) => (
-            <UiButton
-              key={value}
-              type="button"
-              variant="ghost"
-              className="maka-plan-filter"
-              data-active={listFilter === value ? 'true' : 'false'}
-              aria-pressed={listFilter === value}
-              onClick={() => setListFilter(value as PlanReminderListFilter)}
-            >
-              <span>{label}</span>
-              <span>{filterCounts[value as PlanReminderListFilter]}</span>
-            </UiButton>
-          ))}
-        </div>
-        {props.reminders.length === 0 ? (
-          <EmptyState
-            Icon={Clock}
-            title="等待创建计划提醒"
-            body="创建一次性或重复提醒；Maka 会持久化并在到点时记录执行结果。"
-            extraClassName="maka-plan-empty"
-          />
-        ) : sortedReminders.length === 0 ? (
-          <EmptyState
-            Icon={Clock}
-            title={normalizedListQuery ? '没有匹配的提醒' : '当前筛选没有提醒'}
-            body={normalizedListQuery ? '调整搜索词，或切换状态筛选查看其他提醒。' : '切换筛选查看其他状态，或创建新的计划提醒。'}
-            extraClassName="maka-plan-empty"
-          />
-        ) : (
-          planReminderDisplayRows(listFilter, sortedReminders).map((row) => {
-            if (row.kind === 'group') {
-              return (
-                <div key={row.key} className="maka-plan-group-header" aria-label={`${row.label}，${row.count} 个提醒`}>
-                  <span>{row.label}</span>
-                  <span>{row.count}</span>
-                </div>
-              );
-            }
-            const reminder = row.reminder;
-            const reminderActionPrefix = `${reminder.id}:`;
-            const reminderActionPending = Array.from(pendingActionKeys).some((key) => key.startsWith(reminderActionPrefix));
-            return (
-            <article key={reminder.id} className="maka-plan-card" data-status={reminder.status}>
-              <div className="maka-plan-card-main">
-                <div className="maka-plan-card-title">{reminder.title}</div>
-                <div className="maka-plan-card-time">
-                  {reminder.nextRunAt ? (
-                    <>
-                      下次触发：{formatReminderTime(reminder.nextRunAt)}
-                      <span className="maka-plan-card-countdown">
-                        {formatReminderCountdown(reminder.nextRunAt)}
-                      </span>
-                    </>
-                  ) : reminder.lastRun ? (
-                    `最近执行：${formatReminderTime(reminder.lastRun.at)} · ${runStatusLabel(reminder.lastRun.status)}`
-                  ) : (
-                    '未安排'
-                  )}
-                </div>
-                <div className="maka-plan-card-repeat">{formatPlanRecurrence(reminder)}</div>
-                <div className="maka-plan-card-delivery">{formatPlanReminderDeliveryTarget(reminder.delivery)}</div>
-                {reminder.note && <div className="maka-plan-card-note">{reminder.note}</div>}
-                {reminder.lastRun && (
-                  <div className="maka-plan-card-run">
-                    {runStatusLabel(reminder.lastRun.status)}：{reminder.lastRun.message}
-                  </div>
-                )}
-                {reminder.runs.length > 1 && (
-                  <div className="maka-plan-card-history" aria-label="最近执行记录">
-                    <div className="maka-plan-card-history-title">最近执行</div>
-                    {reminder.runs.slice(0, 3).map((run) => (
-                      <div key={run.id} className="maka-plan-card-history-row">
-                        <span>{formatReminderTime(run.at)}</span>
-                        <span>{runStatusLabel(run.status)}</span>
-                        <span>{run.message}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="maka-plan-card-actions">
-                <UiButton
-                  type="button"
-                  variant="ghost"
-                  className="maka-plan-action"
-                  onClick={() => editReminder(reminder)}
-                  disabled={submitPending || reminderActionPending || reminder.status === 'completed'}
-                  title="编辑提醒"
-                >
-                  编辑
-                </UiButton>
-                <UiButton
-                  type="button"
-                  variant="ghost"
-                  className="maka-plan-action"
-                  onClick={() => duplicateReminder(reminder)}
-                  disabled={submitPending || reminderActionPending}
-                  title="复制为新提醒"
-                >
-                  复制
-                </UiButton>
-                <UiButton
-                  type="button"
-                  variant="ghost"
-                  className="maka-plan-action"
-                  onClick={() => void runPlanReminderAction(`${reminder.id}:trigger`, () => props.onTriggerNow?.(reminder.id))}
-                  disabled={reminderActionPending || !reminder.enabled}
-                  title="立即触发一次"
-                >
-                  {pendingActionKeys.has(`${reminder.id}:trigger`) ? '触发中…' : '立即触发'}
-                </UiButton>
-                <UiButton
-                  type="button"
-                  variant="ghost"
-                  className="maka-plan-action"
-                  onClick={() => void runPlanReminderAction(`${reminder.id}:snooze`, () => props.onSnooze?.(reminder.id))}
-                  disabled={reminderActionPending || !reminder.enabled || reminder.status !== 'scheduled' || typeof reminder.nextRunAt !== 'number'}
-                  title="延后 10 分钟"
-                >
-                  {pendingActionKeys.has(`${reminder.id}:snooze`) ? '延后中…' : '延后 10 分钟'}
-                </UiButton>
-                <UiButton
-                  type="button"
-                  variant="ghost"
-                  className="maka-plan-action"
-                  onClick={() => void runPlanReminderAction(`${reminder.id}:clear-runs`, () => props.onClearRunHistory?.(reminder.id))}
-                  disabled={reminderActionPending || reminder.runs.length === 0 || reminder.status === 'completed'}
-                  title="清空最近执行记录"
-                >
-                  {pendingActionKeys.has(`${reminder.id}:clear-runs`) ? '清空中…' : '清空记录'}
-                </UiButton>
-                <UiButton
-                  type="button"
-                  variant="ghost"
-                  className="maka-plan-action"
-                  onClick={() => void runPlanReminderAction(`${reminder.id}:toggle`, () => props.onToggle?.(reminder.id, !reminder.enabled))}
-                  disabled={reminderActionPending || reminder.status === 'completed'}
-                  title={reminder.enabled ? '暂停提醒' : '启用提醒'}
-                >
-                  {pendingActionKeys.has(`${reminder.id}:toggle`) ? (reminder.enabled ? '暂停中…' : '启用中…') : (reminder.enabled ? '暂停' : '启用')}
-                </UiButton>
-                <UiButton
-                  type="button"
-                  variant="destructive"
-                  className="maka-plan-action maka-plan-action-danger"
-                  onClick={() => void runPlanReminderAction(`${reminder.id}:delete`, () => props.onDelete?.(reminder.id))}
-                  disabled={reminderActionPending}
-                  title="删除提醒"
-                >
-                  {pendingActionKeys.has(`${reminder.id}:delete`) ? '删除中…' : '删除'}
-                </UiButton>
-              </div>
-            </article>
-            );
-          })
-        )}
-      </div>
+            {validationMessage && (
+              <p className="maka-plan-validation" role="status" aria-live="polite">
+                {validationMessage}
+              </p>
+            )}
+            <footer className="maka-plan-form-footer">
+              <UiButton
+                className="maka-button maka-plan-submit"
+                variant="secondary"
+                type="button"
+                onClick={closeReminderDialog}
+                disabled={formInteractionDisabled}
+              >
+                取消
+              </UiButton>
+              <UiButton className="maka-button maka-plan-submit" type="submit" disabled={submitDisabled}>
+                {isEditing ? <Check size={14} strokeWidth={1.75} aria-hidden="true" /> : <Plus size={14} strokeWidth={1.75} aria-hidden="true" />}
+                <span>{submitPending ? (isEditing ? '保存中…' : '创建中…') : (isEditing ? '保存提醒' : '创建提醒')}</span>
+              </UiButton>
+            </footer>
+          </form>
+        </DialogContent>
+      </DialogRoot>
     </div>
   );
 }
@@ -2012,6 +2150,20 @@ function planReminderStatusGroupLabel(status: PlanReminderStatus): string {
   if (status === 'scheduled') return '待触发';
   if (status === 'paused') return '已暂停';
   return '已完成';
+}
+
+function planReminderStatusLabel(status: PlanReminderStatus): string {
+  return planReminderStatusGroupLabel(status);
+}
+
+function planReminderRunRangeStart(range: 'day' | 'week' | 'month' | 'all', now: number): number | null {
+  if (range === 'all') return null;
+  const date = new Date(now);
+  if (range === 'day') {
+    date.setHours(0, 0, 0, 0);
+    return date.getTime();
+  }
+  return now - (range === 'week' ? 7 : 30) * 24 * 60 * 60 * 1000;
 }
 
 function planReminderEditableRunAt(reminder: PlanReminder, now: number = Date.now()): number {

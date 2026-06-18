@@ -67,7 +67,7 @@ describe('Plan reminder MVP contract', () => {
     assert.match(ui, /onClearRunHistory/, 'clear history action must be wired through PlanReminderPanel');
     assert.match(ui, /计划提醒筛选/, '计划 UI must expose list filtering for non-trivial reminder lists');
     assert.match(ui, /当前筛选没有提醒/, '计划 UI must distinguish empty filters from an empty reminder store');
-    assert.match(ui, /filterCounts/, 'filter buttons must show counts per reminder status');
+    assert.match(ui, /filterCounts/, 'status picker must show counts per reminder status');
     assert.match(ui, /activePlanReminderCount/, 'sidebar Plan nav must derive an active reminder count');
     assert.match(ui, /maka-nav-count/, 'sidebar Plan nav must surface the active reminder count');
     assert.match(ui, /status !== 'completed'/, 'sidebar Plan nav count must exclude completed history rows');
@@ -94,11 +94,19 @@ describe('Plan reminder MVP contract', () => {
     assert.match(ui, /searchMatchedReminders/, 'status counts must reflect the active search query');
     assert.match(ui, /找到 \{searchMatchedReminders\.length\} 个匹配提醒/, 'search must expose a visible result count');
     assert.match(ui, /清除搜索/, 'search must provide a one-click clear action');
-    assert.match(ui, /planReminderDisplayRows/, 'all-reminders view must group rows by status');
-    assert.match(ui, /maka-plan-group-header/, 'plan reminder groups must have visible headers');
-    assert.match(ui, /planReminderStatusGroupLabel/, 'group labels must come from a centralized status mapper');
+    assert.match(ui, /<TabsRoot[\s\S]*value=\{planView\}/, 'plan reminders must use tabs for task list and execution records');
+    assert.match(ui, /我的定时任务/, 'plan reminders must keep the QoderWork-style task tab label');
+    assert.match(ui, /执行记录/, 'plan reminders must expose a history tab');
+    assert.match(ui, /<DialogRoot[\s\S]*open=\{formDialogOpen\}/, 'create/edit form must live in a dialog instead of staying inline above the task grid');
+    assert.match(ui, /<Menu>[\s\S]*<MenuTrigger[\s\S]*<MenuPopup/, 'card secondary actions must be grouped behind a COSS menu');
+    assert.match(ui, /<Switch[\s\S]*checked=\{reminder\.enabled\}/, 'plan cards must expose QoderWork-style enable switches');
+    assert.match(ui, /maka-plan-card-grid/, 'task cards must render in a responsive grid');
+    assert.match(ui, /maka-plan-card-divider/, 'task cards must use a dashed divider before schedule metadata');
+    assert.match(ui, /planReminderRunRangeStart/, 'execution record filters must use a centralized range helper');
+    assert.match(ui, /planReminderStatusLabel/, 'status labels must come from a centralized mapper');
     assert.match(ui, /import \{ Alert, AlertDescription, AlertTitle \} from '\.\/coss\/alert\.js'/, 'PlanReminderPanel must consume the vendored COSS Alert primitive');
     assert.match(ui, /<Alert variant="info" className="maka-plan-system-alert">[\s\S]*计划提醒会在本机唤醒时运行/, 'PlanReminderPanel must render the QoderWork-style info banner through COSS Alert');
+    assert.match(ui, /import \{ Menu, MenuItem, MenuPopup, MenuTrigger \} from '\.\/coss\/menu\.js'/, 'PlanReminderPanel card actions must consume the vendored COSS Menu primitive');
     assert.match(ui, /import \{ Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle \} from '\.\/coss\/empty\.js'/, 'shared EmptyState must be backed by the vendored COSS Empty primitive');
     assert.match(ui, /function EmptyState[\s\S]*<Empty className=\{className\}[\s\S]*<EmptyMedia variant="icon"/, 'shared EmptyState must compose COSS Empty instead of a one-off Card layout');
     assert.equal(
@@ -133,11 +141,11 @@ describe('Plan reminder MVP contract', () => {
     assert.match(panelBlock, /className="maka-plan-preset"[\s\S]*disabled=\{formInteractionDisabled\}/, 'pending create/save must disable quick presets');
     assert.match(panelBlock, /<PlanReminderSelect[\s\S]*value=\{recurrence\}[\s\S]*disabled=\{formInteractionDisabled\}/, 'pending create/save must disable recurrence changes');
     assert.match(panelBlock, /placeholder="可选：补充需要提醒的上下文"[\s\S]*disabled=\{formInteractionDisabled\}/, 'pending create/save must disable note edits');
-    assert.match(panelBlock, /onClick=\{resetForm\}[\s\S]*disabled=\{formInteractionDisabled\}/, 'cancel edit must not clear the draft while create/save is pending');
+    assert.match(panelBlock, /onClick=\{closeReminderDialog\}[\s\S]*disabled=\{formInteractionDisabled\}/, 'cancel edit must not close or clear the draft while create/save is pending');
     assert.match(panelBlock, /onClick=\{\(\) => editReminder\(reminder\)\}[\s\S]*disabled=\{submitPending \|\| reminderActionPending \|\| reminder\.status === 'completed'\}/, 'row edit must not overwrite a pending create/save draft');
     assert.match(panelBlock, /onClick=\{\(\) => duplicateReminder\(reminder\)\}[\s\S]*disabled=\{submitPending \|\| reminderActionPending\}/, 'row duplicate must not overwrite a pending create/save draft');
     assert.match(panelBlock, /const result = editingId[\s\S]*await props\.onUpdate\?\.\(editingId, input\)[\s\S]*await props\.onCreate\?\.\(/, 'plan form must await async create/save callbacks');
-    assert.match(panelBlock, /if \(result !== false && planReminderMountedRef\.current\) resetForm\(\)/, 'plan form must keep the user draft when the parent reports failure and avoid late reset after unmount');
+    assert.match(panelBlock, /if \(result !== false && planReminderMountedRef\.current\) \{[\s\S]*resetForm\(\);[\s\S]*setFormDialogOpen\(false\);[\s\S]*\}/, 'plan form must keep the user draft when the parent reports failure and close only after successful create/save');
     assert.match(panelBlock, /if \(planReminderMountedRef\.current\) setSubmitPending\(false\)/, 'plan form must not clear submit state after unmount');
     assert.doesNotMatch(panelBlock, /props\.onCreate\?\([\s\S]*?\);\s*}\s*resetForm\(\)/, 'plan form must not clear fields immediately after firing create');
     assert.match(renderer, /toastApi\.success\('已创建计划提醒'[\s\S]*return true;[\s\S]*toastApi\.error\('创建计划失败'[\s\S]*return false;/, 'createPlanReminder must report success/failure to the form');
@@ -174,6 +182,8 @@ describe('Plan reminder MVP contract', () => {
     assert.match(panelBlock, /disabled=\{reminderActionPending \|\| !reminder\.enabled \|\| reminder\.status !== 'scheduled'/, 'snooze must be disabled while the row is mutating');
     assert.match(panelBlock, /pendingActionKeys\.has\(`\$\{reminder\.id\}:trigger`\) \? '触发中…' : '立即触发'/, 'trigger action must show local progress feedback');
     assert.match(panelBlock, /pendingActionKeys\.has\(`\$\{reminder\.id\}:delete`\) \? '删除中…' : '删除'/, 'delete action must show local progress feedback');
+    assert.match(panelBlock, /<MenuItem[\s\S]*\$\{reminder\.id\}:trigger/, 'secondary row actions must live inside the COSS menu');
+    assert.match(panelBlock, /<Switch[\s\S]*\$\{reminder\.id\}:toggle/, 'enable\/pause mutation must be owned by the card switch');
     assert.doesNotMatch(panelBlock, /onClick=\{\(\) => props\.onTriggerNow\?\.\(reminder\.id\)\}/, 'trigger must not remain fire-and-forget from the row');
     assert.doesNotMatch(panelBlock, /onClick=\{\(\) => props\.onSnooze\?\.\(reminder\.id\)\}/, 'snooze must not remain fire-and-forget from the row');
 
