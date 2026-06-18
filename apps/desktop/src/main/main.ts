@@ -130,6 +130,7 @@ import {
   SessionManager,
   buildBuiltinTools,
   buildChildAgentTools,
+  buildSubagentProjectionTools,
   buildSubagentSpawnTool,
   fetchProviderModels,
   getAIModel,
@@ -585,6 +586,7 @@ const toolAvailability: ToolAvailabilityConfig = {
 const builtinTools = [
   ...buildBuiltinTools().filter((tool) => tool.name !== 'Edit'),
   buildSubagentSpawnTool(),
+  ...buildSubagentProjectionTools(),
   // External reference lazy-skill pattern: the prompt lists available skills,
   // and this read-only tool loads the full SKILL.md only when the task matches.
   buildSkillAgentTool(workspaceRoot),
@@ -828,6 +830,8 @@ backends.register('ai-sdk', async (ctx) => {
     tools: [...(ctx.tools ?? builtinTools)],
     toolAvailability,
     spawnChildAgent: (input) => runtime.spawnChildAgent(ctx.sessionId, input),
+    listChildAgents: () => runtime.listChildAgents(ctx.sessionId),
+    readChildAgentOutput: (input) => runtime.readChildAgentOutput(ctx.sessionId, input),
     providerOptions: buildProviderOptions(connection, model),
     contextBudget: buildContextBudgetPolicy(connection),
     systemPrompt: ctx.systemPrompt ?? (({ cwd }) => buildSystemPrompt(ctx.header, cwd, { memoryFragment: memoryPromptSnapshot })),
@@ -1233,6 +1237,10 @@ const runtime = new SessionManager({
   runtimeEventStore,
   backends,
   childTools: childAgentTools,
+  listArtifactsForTurn: async (sessionId, turnId) =>
+    (await artifactStore.list(sessionId)).filter((artifact) =>
+      artifact.turnId === turnId && artifact.status !== 'deleted'
+    ),
   newId: randomUUID,
   now: Date.now,
 });

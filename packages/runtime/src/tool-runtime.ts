@@ -59,6 +59,8 @@ export interface MakaToolContext {
     spec: AgentSpec;
     prompt: string;
   }) => Promise<unknown>;
+  listChildAgents?: () => Promise<unknown>;
+  readChildAgentOutput?: (input: { runId?: string; turnId?: string }) => Promise<unknown>;
 }
 
 export type AppendMessageFn = (m: ToolCallMessage | ToolResultMessage | PermissionDecisionMessage) => Promise<void>;
@@ -100,6 +102,8 @@ export interface ToolRuntimeInput {
     prompt: string;
     abortSignal: AbortSignal;
   }) => Promise<unknown>;
+  listChildAgents?: () => Promise<unknown>;
+  readChildAgentOutput?: (input: { runId?: string; turnId?: string }) => Promise<unknown>;
   getRunTrace?: () => RunTraceLike | null;
   permissionTimeoutMs?: number;
   recordToolInvocation?: ToolTelemetryRecorder;
@@ -367,6 +371,8 @@ export class ToolRuntime {
         toolCallId: toolUseId,
         abortSignal: ctx.abortSignal,
         emitOutput: output.emit,
+        ...(this.input.listChildAgents ? { listChildAgents: this.input.listChildAgents } : {}),
+        ...(this.input.readChildAgentOutput ? { readChildAgentOutput: this.input.readChildAgentOutput } : {}),
         ...(this.buildSpawnChildAgentContext(ctx.abortSignal)),
       });
       output.flush();

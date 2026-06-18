@@ -316,6 +316,8 @@ export interface AiSdkBackendInput {
     prompt: string;
     abortSignal: AbortSignal;
   }) => Promise<unknown>;
+  listChildAgents?: () => Promise<unknown>;
+  readChildAgentOutput?: (input: { runId?: string; turnId?: string }) => Promise<unknown>;
   /** Optional diagnostic trace hook for explaining a runtime turn without changing renderer events. */
   recordRunTrace?: RunTraceRecorder;
   /**
@@ -413,6 +415,8 @@ export class AiSdkBackend implements AgentBackend {
       getPermissionPauseTarget: () => this.currentWatchdog,
       getCurrentRunId: () => this.currentRunId ?? undefined,
       spawnChildAgent: input.spawnChildAgent,
+      listChildAgents: input.listChildAgents,
+      readChildAgentOutput: input.readChildAgentOutput,
       getRunTrace: () => this.currentRunTrace,
       permissionTimeoutMs: input.permissionTimeoutMs,
       recordToolInvocation: input.recordToolInvocation,

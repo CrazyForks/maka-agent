@@ -48,7 +48,7 @@ import type {
 import type { PermissionResponse } from '@maka/core/permission';
 import type { PermissionMode } from '@maka/core/permission';
 import { DEEP_RESEARCH_SESSION_LABEL, isDeepResearchSession } from '@maka/core';
-import type { AgentRunHeader, AgentRunStore, RuntimeEvent, RuntimeEventStore } from '@maka/core';
+import type { AgentRunHeader, AgentRunStore, ArtifactRecord, RuntimeEvent, RuntimeEventStore } from '@maka/core';
 import {
   type RuntimeEventTerminalFact,
 } from './runtime-event-read-model.js';
@@ -89,6 +89,33 @@ export interface SpawnChildAgentResult {
   durationMs: number;
   eventCount: number;
   failureClass?: string;
+}
+
+export interface AgentListItem {
+  runId: string;
+  turnId: string;
+  parentRunId: string;
+  agentName?: string;
+  status: AgentRunHeader['status'];
+  permissionMode: AgentRunHeader['permissionMode'];
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+  durationMs?: number;
+  failureClass?: string;
+}
+
+export interface AgentListResult {
+  agents: AgentListItem[];
+}
+
+export interface AgentOutputInput {
+  runId?: string;
+  turnId?: string;
+}
+
+export interface AgentOutputResult extends AgentRunInspectModel {
+  artifacts: ArtifactRecord[];
 }
 
 // ============================================================================
@@ -160,6 +187,7 @@ export interface SessionManagerDeps {
   newId: () => string;
   now: () => number;
   childTools?: readonly MakaTool[];
+  listArtifactsForTurn?: (sessionId: string, turnId: string) => Promise<ArtifactRecord[]>;
   runtimeSource?: InvocationSource;
   runtimeInvocationObserver?: (result: InvocationResult) => void | Promise<void>;
   runtimeKernel?: RuntimeKernelLike;
@@ -409,6 +437,47 @@ export class SessionManager {
     };
   }
 
+  async listChildAgents(sessionId: string): Promise<AgentListResult> {
+    if (!this.deps.runStore) return { agents: [] };
+    const runs = await this.deps.runStore.listSessionRuns(sessionId);
+    return {
+      agents: runs
+        .filter((run): run is AgentRunHeader & { parentRunId: string } => !!run.parentRunId)
+        .map((run) => ({
+          runId: run.runId,
+          turnId: run.turnId,
+          parentRunId: run.parentRunId,
+          ...(run.agentName ? { agentName: run.agentName } : {}),
+          status: run.status,
+          permissionMode: run.permissionMode,
+          createdAt: run.createdAt,
+          updatedAt: run.updatedAt,
+          ...(run.completedAt !== undefined ? { completedAt: run.completedAt } : {}),
+          ...(run.completedAt !== undefined ? { durationMs: Math.max(0, run.completedAt - run.createdAt) } : {}),
+          ...(run.failureClass ? { failureClass: run.failureClass } : {}),
+        })),
+    };
+  }
+
+  async readChildAgentOutput(
+    sessionId: string,
+    input: AgentOutputInput,
+  ): Promise<AgentOutputResult> {
+    if (!this.deps.runStore || !this.deps.runtimeEventStore) {
+      throw new Error('agent_output requires AgentRunStore and RuntimeEventStore');
+    }
+    const header = await this.findChildRunForOutput(sessionId, input);
+    const inspected = await inspectAgentRunReadModel(this.deps.runStore, this.deps.runtimeEventStore, {
+      sessionId,
+      runId: header.runId,
+      header,
+    });
+    const artifacts = this.deps.listArtifactsForTurn
+      ? await this.deps.listArtifactsForTurn(sessionId, header.turnId)
+      : [];
+    return { ...inspected, artifacts };
+  }
+
   async stopSession(sessionId: string, input: StopSessionInput = {}): Promise<void> {
     await this.runtimeKernel.stopSession(sessionId, input);
   }
@@ -494,6 +563,19 @@ export class SessionManager {
     if (!this.deps.runStore) return undefined;
     const runs = await this.deps.runStore.listSessionRuns(sessionId).catch(() => []);
     return runs.find((run) => run.turnId === turnId);
+  }
+
+  private async findChildRunForOutput(
+    sessionId: string,
+    input: AgentOutputInput,
+  ): Promise<AgentRunHeader> {
+    const runs = await this.deps.runStore?.listSessionRuns(sessionId);
+    const header = runs?.find((run) =>
+      input.runId ? run.runId === input.runId : input.turnId ? run.turnId === input.turnId : false
+    );
+    if (!header) throw new Error('agent_output could not find the requested child agent run');
+    if (!header.parentRunId) throw new Error('agent_output only reads child agent runs');
+    return header;
   }
 
   private async updateStatus(

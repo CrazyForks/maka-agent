@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { MakaTool } from './tool-runtime.js';
 
 export const AGENT_SPAWN_TOOL_NAME = 'agent_spawn';
+export const AGENT_LIST_TOOL_NAME = 'agent_list';
+export const AGENT_OUTPUT_TOOL_NAME = 'agent_output';
 export const CHILD_AGENT_TOOL_NAMES = ['Bash', 'Read', 'Glob', 'Grep'] as const;
 
 const childAgentToolNameSet = new Set<string>(CHILD_AGENT_TOOL_NAMES);
@@ -42,4 +44,56 @@ export function buildSubagentSpawnTool(): MakaTool<
       });
     },
   };
+}
+
+export function buildSubagentListTool(): MakaTool<Record<string, never>, unknown> {
+  return {
+    name: AGENT_LIST_TOOL_NAME,
+    displayName: 'Agent List',
+    description: 'List child agent runs for the current session.',
+    parameters: z.object({}),
+    permissionRequired: false,
+    categoryHint: 'read',
+    impl: async (_input, ctx) => {
+      if (!ctx.listChildAgents) {
+        throw new Error('listChildAgents capability is unavailable in this runtime context');
+      }
+      return await ctx.listChildAgents();
+    },
+  };
+}
+
+export function buildSubagentOutputTool(): MakaTool<
+  {
+    run_id?: string;
+    turn_id?: string;
+  },
+  unknown
+> {
+  return {
+    name: AGENT_OUTPUT_TOOL_NAME,
+    displayName: 'Agent Output',
+    description: 'Inspect a child agent run by run_id or turn_id, including runtime events and artifacts.',
+    parameters: z.object({
+      run_id: z.string().optional(),
+      turn_id: z.string().optional(),
+    }).refine((input) => !!input.run_id || !!input.turn_id, {
+      message: 'Provide run_id or turn_id',
+    }),
+    permissionRequired: false,
+    categoryHint: 'read',
+    impl: async (input, ctx) => {
+      if (!ctx.readChildAgentOutput) {
+        throw new Error('readChildAgentOutput capability is unavailable in this runtime context');
+      }
+      return await ctx.readChildAgentOutput({
+        ...(input.run_id ? { runId: input.run_id } : {}),
+        ...(input.turn_id ? { turnId: input.turn_id } : {}),
+      });
+    },
+  };
+}
+
+export function buildSubagentProjectionTools(): MakaTool[] {
+  return [buildSubagentListTool(), buildSubagentOutputTool()];
 }

@@ -1217,6 +1217,72 @@ describe('SessionManager permission mode updates', () => {
     expect((await store.readHeader(session.id)).permissionMode).toBe('execute');
   });
 
+  test('agent projections list child runs and read output artifacts by child turn', async () => {
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new TestBackend(ctx));
+    const manager = new SessionManager({
+      store,
+      runStore, runtimeEventStore: runStore, backends,
+      listArtifactsForTurn: async (_sessionId, turnId) => turnId === 'child-turn'
+        ? [{
+            id: 'artifact-1',
+            sessionId: 'session-1',
+            turnId,
+            createdAt: 200,
+            name: 'notes.md',
+            kind: 'file',
+            relativePath: 'artifacts/notes.md',
+            sizeBytes: 12,
+            status: 'live',
+          }]
+        : [],
+      newId: nextId(),
+      now: nextNow(6_848),
+      runtimeSource: 'test',
+    });
+    const session = await manager.createSession(makeInput());
+    await seedRuntimeRun(runStore, makeRunHeader({
+      sessionId: session.id,
+      runId: 'parent-run',
+      turnId: 'parent-turn',
+      status: 'completed',
+      createdAt: 100,
+      updatedAt: 110,
+      completedAt: 110,
+    }), [
+      runtimeEvent({ id: 'parent-user', sessionId: session.id, runId: 'parent-run', turnId: 'parent-turn', ts: 101, role: 'user', author: 'user', content: { kind: 'text', text: 'parent' } }),
+      runtimeEvent({ id: 'parent-complete', sessionId: session.id, runId: 'parent-run', turnId: 'parent-turn', ts: 110, role: 'system', author: 'system', status: 'completed', actions: { endInvocation: true } }),
+    ]);
+    await seedRuntimeRun(runStore, makeRunHeader({
+      sessionId: session.id,
+      runId: 'child-run',
+      turnId: 'child-turn',
+      status: 'completed',
+      createdAt: 120,
+      updatedAt: 130,
+      completedAt: 130,
+      parentRunId: 'parent-run',
+      agentName: 'Researcher',
+      permissionMode: 'explore',
+    }), [
+      runtimeEvent({ id: 'child-user', sessionId: session.id, runId: 'child-run', turnId: 'child-turn', ts: 121, role: 'user', author: 'user', content: { kind: 'text', text: 'inspect' } }),
+      runtimeEvent({ id: 'child-answer', sessionId: session.id, runId: 'child-run', turnId: 'child-turn', ts: 125, role: 'model', author: 'agent', content: { kind: 'text', text: 'child answer' } }),
+      runtimeEvent({ id: 'child-complete', sessionId: session.id, runId: 'child-run', turnId: 'child-turn', ts: 130, role: 'system', author: 'system', status: 'completed', actions: { endInvocation: true } }),
+    ]);
+
+    const list = await manager.listChildAgents(session.id);
+    expect(list.agents.map((agent) => agent.runId)).toEqual(['child-run']);
+    expect(list.agents[0]?.agentName).toBe('Researcher');
+    expect(list.agents[0]?.durationMs).toBe(10);
+
+    const output = await manager.readChildAgentOutput(session.id, { runId: 'child-run' });
+    expect(output.header.runId).toBe('child-run');
+    expect(output.runtimeEvents.map((event) => event.id)).toEqual(['child-user', 'child-answer', 'child-complete']);
+    expect(output.artifacts.map((artifact) => artifact.id)).toEqual(['artifact-1']);
+  });
+
   test('next turn still receives RuntimeEvent context when projection cache has extra rows', async () => {
     const store = new MemorySessionStore();
     const runStore = new MemoryAgentRunStore();
