@@ -99,7 +99,7 @@ describe('localized main shell contract', () => {
     );
     assert.match(
       components,
-      /<button className="maka-button maka-plan-submit"[\s\S]*?<Check size=\{14\} strokeWidth=\{1\.75\} aria-hidden="true" \/>[\s\S]*?<Plus size=\{14\} strokeWidth=\{1\.75\} aria-hidden="true" \/>/,
+      /<UiButton className="maka-button maka-plan-submit"[\s\S]*?<Check size=\{14\} strokeWidth=\{1\.75\} aria-hidden="true" \/>[\s\S]*?<Plus size=\{14\} strokeWidth=\{1\.75\} aria-hidden="true" \/>/,
       'Plan submit icons are decorative because the button text says 保存提醒 / 创建提醒',
     );
     assert.match(

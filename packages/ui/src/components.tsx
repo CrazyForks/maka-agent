@@ -910,14 +910,15 @@ function SkillsModuleMain(props: {
           <h2>技能</h2>
           <p>管理工作区里的 Skill 指令文件。</p>
         </div>
-        <button
+        <UiButton
           className="maka-button maka-button-ghost"
+          variant="ghost"
           type="button"
           onClick={() => void runSkillAction('refresh', props.onRefreshSkills)}
           disabled={!props.onRefreshSkills || skillActionBusy}
         >
           {pendingSkillAction === 'refresh' ? '刷新中…' : '刷新'}
-        </button>
+        </UiButton>
       </header>
       <SkillLibraryPanel
         skills={props.skills}
@@ -1066,31 +1067,34 @@ function DailyReviewPanel(props: {
   return (
     <div className="maka-daily-review-panel" data-loading={loading ? 'true' : undefined}>
       <header className="maka-daily-review-header">
-        <button
+        <UiButton
           type="button"
+          variant="ghost"
           className="maka-button maka-button-ghost"
           onClick={() => setOffsetDays((n) => n - range)}
           aria-label={`查看更早一${stepperLabel}`}
         >
           ‹
-        </button>
+        </UiButton>
         <div className="maka-daily-review-day">{dayLabel}</div>
-        <button
+        <UiButton
           type="button"
+          variant="ghost"
           className="maka-button maka-button-ghost"
           onClick={() => setOffsetDays((n) => Math.min(0, n + range))}
           disabled={offsetDays >= 0}
           aria-label={`查看更晚一${stepperLabel}`}
         >
           ›
-        </button>
+        </UiButton>
       </header>
       <nav className="maka-daily-review-range" aria-label="时间范围切换">
         <div className="maka-daily-review-range-tabs">
           {([1, 7, 30] as const).map((option) => (
-            <button
+            <UiButton
               key={option}
               type="button"
+              variant="ghost"
               className="maka-button maka-button-ghost"
               data-active={range === option ? 'true' : undefined}
               aria-pressed={range === option}
@@ -1100,14 +1104,15 @@ function DailyReviewPanel(props: {
               }}
             >
               {option === 1 ? '今日' : option === 7 ? '本周' : '本月'}
-            </button>
+            </UiButton>
           ))}
         </div>
         {visibleSummary && visibleSummary.totals.sessionCount + visibleSummary.totals.requestCount > 0 && hasDailyReviewActions && (
           <div className="maka-daily-review-actions" aria-label="回顾导出操作">
             {props.onCopyMarkdown && (
-              <button
+              <UiButton
                 type="button"
+                variant="ghost"
                 className="maka-button maka-button-ghost maka-daily-review-copy"
                 onClick={() => void runDailyReviewAction('copy', async () => {
                   const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
@@ -1119,11 +1124,12 @@ function DailyReviewPanel(props: {
                 title="复制为 Markdown 摘要，方便分享 / 贴到笔记"
               >
                 {pendingDailyReviewAction === 'copy' ? '复制中…' : '复制'}
-              </button>
+              </UiButton>
             )}
             {props.onAppendMarkdown && (
-              <button
+              <UiButton
                 type="button"
+                variant="ghost"
                 className="maka-button maka-button-ghost maka-daily-review-append"
                 onClick={() => void runDailyReviewAction('append', async () => {
                   const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
@@ -1135,11 +1141,12 @@ function DailyReviewPanel(props: {
                 title="追加到当前输入框草稿"
               >
                 {pendingDailyReviewAction === 'append' ? '追加中…' : '粘到输入框'}
-              </button>
+              </UiButton>
             )}
             {props.onSaveMarkdown && (
-              <button
+              <UiButton
                 type="button"
+                variant="ghost"
                 className="maka-button maka-button-ghost maka-daily-review-save"
                 onClick={() => void runDailyReviewAction('save', async () => {
                   const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
@@ -1151,7 +1158,7 @@ function DailyReviewPanel(props: {
                 title="保存为 Markdown 文件"
               >
                 {pendingDailyReviewAction === 'save' ? '保存中…' : '保存'}
-              </button>
+              </UiButton>
             )}
           </div>
         )}
@@ -1160,14 +1167,15 @@ function DailyReviewPanel(props: {
       {error && visibleSummary ? (
         <div className="maka-daily-review-alert" role="alert">
           <span>每日回顾刷新失败：{error}</span>
-          <button
+          <UiButton
             type="button"
+            variant="ghost"
             className="maka-button maka-button-ghost"
             onClick={() => setReloadToken((n) => n + 1)}
             disabled={loading}
           >
             重试
-          </button>
+          </UiButton>
         </div>
       ) : null}
 
@@ -1627,19 +1635,20 @@ function PlanReminderPanel(props: {
             {validationMessage}
           </p>
         )}
-        <button className="maka-button maka-plan-submit" type="submit" disabled={submitDisabled}>
+        <UiButton className="maka-button maka-plan-submit" type="submit" disabled={submitDisabled}>
           {isEditing ? <Check size={14} strokeWidth={1.75} aria-hidden="true" /> : <Plus size={14} strokeWidth={1.75} aria-hidden="true" />}
           <span>{submitPending ? (isEditing ? '保存中…' : '创建中…') : (isEditing ? '保存提醒' : '创建提醒')}</span>
-        </button>
+        </UiButton>
         {isEditing && (
-          <button
+          <UiButton
             className="maka-button secondary maka-plan-submit"
+            variant="secondary"
             type="button"
             onClick={resetForm}
             disabled={formInteractionDisabled}
           >
             取消编辑
-          </button>
+          </UiButton>
         )}
       </form>
 
@@ -6152,10 +6161,11 @@ function ToolErrorBanner(props: { result: ToolActivityItem['result'] }) {
         )}
       </div>
       {errorText && (
-        <button
+        <UiButton
           type="button"
+          variant="ghost"
+          size="sm"
           className="maka-button maka-tool-error-copy"
-          data-size="sm"
           data-pending={copyPending ? 'true' : undefined}
           data-copy-feedback={copyPhase ?? undefined}
           aria-label={`${copyLabel}错误信息`}
@@ -6165,7 +6175,7 @@ function ToolErrorBanner(props: { result: ToolActivityItem['result'] }) {
         >
           {copyPhase === 'copied' ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
           <span>{copyLabel}</span>
-        </button>
+        </UiButton>
       )}
     </div>
   );
@@ -6175,7 +6185,7 @@ export function OverlayHost(props: { content?: ToolResultContent; onClose(): voi
   if (!props.content) return null;
   return (
     <div className="maka-modal-backdrop overlay">
-      <button className="maka-button" onClick={props.onClose}>Close</button>
+      <UiButton className="maka-button" onClick={props.onClose}>Close</UiButton>
       <OverlayPreview content={props.content} />
     </div>
   );
@@ -6916,8 +6926,10 @@ function ExploreAgentPreview(props: {
         {resultSummary.length > 0 && (
           <div className="maka-explore-agent-summary-line">
             <small>{redactSecrets(resultSummary)}</small>
-            <button
+            <UiButton
               type="button"
+              variant="ghost"
+              size="sm"
               className="maka-button maka-button-ghost maka-explore-agent-copy"
               data-size="sm"
               onClick={() => void copyFeedback.copy('summary', summaryText)}
@@ -6930,13 +6942,15 @@ function ExploreAgentPreview(props: {
             >
               {summaryCopy.phase === 'copied' ? <Check size={13} strokeWidth={2} aria-hidden="true" /> : <Copy size={13} strokeWidth={1.75} aria-hidden="true" />}
               <span>{summaryCopy.label}</span>
-            </button>
+            </UiButton>
           </div>
         )}
         {continuationText.length > 0 && (
           <div className="maka-explore-agent-actions" aria-label="只读探索后续操作">
-            <button
+            <UiButton
               type="button"
+              variant="ghost"
+              size="sm"
               className="maka-button maka-button-ghost maka-explore-agent-copy"
               data-size="sm"
               onClick={() => void copyFeedback.copy('continuation', continuationText)}
@@ -6950,7 +6964,7 @@ function ExploreAgentPreview(props: {
             >
               {continuationCopy.phase === 'copied' ? <Check size={13} strokeWidth={2} aria-hidden="true" /> : <Copy size={13} strokeWidth={1.75} aria-hidden="true" />}
               <span>{continuationCopy.label}</span>
-            </button>
+            </UiButton>
           </div>
         )}
       </header>
@@ -7005,8 +7019,10 @@ function ExploreAgentPreview(props: {
         <section className="maka-explore-agent-section" aria-label="探索过程">
           <div className="maka-explore-agent-section-head">
             <strong>过程</strong>
-            <button
+            <UiButton
               type="button"
+              variant="ghost"
+              size="sm"
               className="maka-button maka-button-ghost maka-explore-agent-copy"
               data-size="sm"
               onClick={() => void copyFeedback.copy('process', processText)}
@@ -7019,7 +7035,7 @@ function ExploreAgentPreview(props: {
             >
               {processCopy.phase === 'copied' ? <Check size={13} strokeWidth={2} aria-hidden="true" /> : <Copy size={13} strokeWidth={1.75} aria-hidden="true" />}
               <span>{processCopy.label}</span>
-            </button>
+            </UiButton>
           </div>
           <ul>
             {progress.map((item, index) => (
@@ -7034,8 +7050,10 @@ function ExploreAgentPreview(props: {
         <section className="maka-explore-agent-section" aria-label="证据锚点">
           <div className="maka-explore-agent-section-head">
             <strong>证据锚点</strong>
-            <button
+            <UiButton
               type="button"
+              variant="ghost"
+              size="sm"
               className="maka-button maka-button-ghost maka-explore-agent-copy"
               data-size="sm"
               onClick={() => void copyFeedback.copy('evidence', evidenceText)}
@@ -7048,7 +7066,7 @@ function ExploreAgentPreview(props: {
             >
               {evidenceCopy.phase === 'copied' ? <Check size={13} strokeWidth={2} aria-hidden="true" /> : <Copy size={13} strokeWidth={1.75} aria-hidden="true" />}
               <span>{evidenceCopy.label}</span>
-            </button>
+            </UiButton>
           </div>
           <ul>
             {evidence.map((item, index) => (
@@ -7070,8 +7088,10 @@ function ExploreAgentPreview(props: {
         <section className="maka-explore-agent-section" aria-label="研究报告">
           <div className="maka-explore-agent-section-head">
             <strong>研究报告</strong>
-            <button
+            <UiButton
               type="button"
+              variant="ghost"
+              size="sm"
               className="maka-button maka-button-ghost maka-explore-agent-copy"
               data-size="sm"
               onClick={() => void copyFeedback.copy('report', reportText)}
@@ -7084,7 +7104,7 @@ function ExploreAgentPreview(props: {
             >
               {reportCopy.phase === 'copied' ? <Check size={13} strokeWidth={2} aria-hidden="true" /> : <Copy size={13} strokeWidth={1.75} aria-hidden="true" />}
               <span>{reportCopy.label}</span>
-            </button>
+            </UiButton>
           </div>
           <ul>
             {reportLines.map((line, index) => (
@@ -7099,8 +7119,10 @@ function ExploreAgentPreview(props: {
         <section className="maka-explore-agent-section" aria-label="候选文件">
           <div className="maka-explore-agent-section-head">
             <strong>候选文件</strong>
-            <button
+            <UiButton
               type="button"
+              variant="ghost"
+              size="sm"
               className="maka-button maka-button-ghost maka-explore-agent-copy"
               data-size="sm"
               onClick={() => void copyFeedback.copy('candidate', candidateText)}
@@ -7113,7 +7135,7 @@ function ExploreAgentPreview(props: {
             >
               {candidateCopy.phase === 'copied' ? <Check size={13} strokeWidth={2} aria-hidden="true" /> : <Copy size={13} strokeWidth={1.75} aria-hidden="true" />}
               <span>{candidateCopy.label}</span>
-            </button>
+            </UiButton>
           </div>
           <ul>
             {candidateFiles.map((file) => (
@@ -7132,8 +7154,10 @@ function ExploreAgentPreview(props: {
         <section className="maka-explore-agent-section" aria-label="命中片段">
           <div className="maka-explore-agent-section-head">
             <strong>命中片段</strong>
-            <button
+            <UiButton
               type="button"
+              variant="ghost"
+              size="sm"
               className="maka-button maka-button-ghost maka-explore-agent-copy"
               data-size="sm"
               onClick={() => void copyFeedback.copy('matches', matchesText)}
@@ -7146,7 +7170,7 @@ function ExploreAgentPreview(props: {
             >
               {matchesCopy.phase === 'copied' ? <Check size={13} strokeWidth={2} aria-hidden="true" /> : <Copy size={13} strokeWidth={1.75} aria-hidden="true" />}
               <span>{matchesCopy.label}</span>
-            </button>
+            </UiButton>
           </div>
           <ul>
             {matches.map((match, index) => (
@@ -7622,8 +7646,10 @@ function TerminalPreview(props: {
           <span>
             输出较长，当前只展示每路输出的前 {TOOL_LINE_CAP} 行。需要继续研读时，可以切到深度研究并把命令、相关路径和想确认的问题交给只读探索。
           </span>
-          <button
+          <UiButton
             type="button"
+            variant="ghost"
+            size="sm"
             className="maka-button maka-button-ghost maka-tool-terminal-copy"
             data-size="sm"
             onClick={() => void copyFeedback.copy('handoff', handoffText)}
@@ -7636,7 +7662,7 @@ function TerminalPreview(props: {
           >
             {handoffCopyPhase === 'copied' ? <Check size={13} strokeWidth={2} aria-hidden="true" /> : <Copy size={13} strokeWidth={1.75} aria-hidden="true" />}
             <span>{handoffCopyLabel}</span>
-          </button>
+          </UiButton>
         </div>
       )}
     </div>
