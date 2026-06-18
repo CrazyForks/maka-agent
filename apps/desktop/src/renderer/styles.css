@@ -3939,13 +3939,29 @@ button:active {
   white-space: nowrap;
 }
 
-.maka-palette-input-hint kbd {
+.maka-shortcut-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.maka-shortcut-kbd {
+  height: 20px;
+  min-width: 20px;
   padding: 1px 5px;
   border-radius: 4px;
-  background: var(--foreground-5);
   border: 1px solid var(--border);
+  background: var(--foreground-5);
+  box-shadow: inset 0 1px 0 oklch(from var(--background) l c h / 0.45);
+  color: var(--foreground-60);
   font-family: var(--font-mono);
   font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.maka-palette-input-hint .maka-shortcut-kbd {
+  background: var(--foreground-5);
 }
 
 .maka-palette-list {
@@ -4030,13 +4046,18 @@ button:active {
   font-size: 11px;
 }
 
-.maka-palette-footer kbd {
+.maka-palette-footer .maka-shortcut-group,
+.maka-palette-footer .maka-shortcut-kbd {
   margin-right: 4px;
+}
+
+.maka-palette-footer .maka-shortcut-group .maka-shortcut-kbd {
+  margin-right: 0;
+}
+
+.maka-palette-footer .maka-shortcut-kbd {
   padding: 1px 5px;
-  border-radius: 4px;
   background: var(--background);
-  border: 1px solid var(--border);
-  font-family: var(--font-mono);
   font-size: 10px;
 }
 
@@ -4134,7 +4155,8 @@ button:active {
    * doesn't look like a smashed pill. */
   max-width: 100%;
 }
-.maka-hero-palette-hint kbd {
+.maka-hero-palette-hint .maka-shortcut-group,
+.maka-hero-palette-hint .maka-shortcut-kbd {
   font-size: 11px;
   /* Keep glyphs grouped on one line even when the text wraps. */
   flex: 0 0 auto;
@@ -4840,7 +4862,7 @@ button:active {
   outline: 0;
 }
 
-.composerActions span kbd {
+.maka-composer-streaming-hint .maka-shortcut-kbd {
   font-size: 10px;
   padding: 1px 5px;
   background: var(--foreground-3);
@@ -5262,7 +5284,7 @@ button:active {
   font-weight: 700;
 }
 
-.settingsSidebar header kbd {
+.settingsSidebar header .maka-shortcut-kbd {
   font-size: 11px;
   padding: 1px 6px;
 }

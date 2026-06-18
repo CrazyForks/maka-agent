@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, X } from 'lucide-react';
-import { Button, useModalA11y } from '@maka/ui';
+import { Button, Kbd, useModalA11y } from '@maka/ui';
 
 type Section = {
   heading: string;
@@ -156,7 +156,7 @@ export function KeyboardHelpModal(props: { onClose(): void }) {
                       {row.keys.map((key, index) => (
                         <span key={`${row.description}:${key}:${index}`}>
                           {index > 0 && <span className="maka-help-plus" aria-hidden="true">+</span>}
-                          <kbd>{key}</kbd>
+                          <Kbd className="maka-shortcut-kbd">{key}</Kbd>
                         </span>
                       ))}
                     </dd>

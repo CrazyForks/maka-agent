@@ -47,6 +47,7 @@ describe('localized main shell contract', () => {
   it('does not render idle Composer keyboard shortcut copy in the chat surface', async () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
 
+    assert.match(components, /import \{ Kbd, KbdGroup \} from '\.\/coss\/kbd\.js';/);
     assert.doesNotMatch(components, /maka-composer-shortcut-hint/);
     assert.doesNotMatch(components, /enterHint/);
     assert.match(
@@ -58,6 +59,21 @@ describe('localized main shell contract', () => {
       components,
       /copy\.sending/,
       'sending status must stay visible to assistive technology',
+    );
+    assert.match(
+      components,
+      /aria-keyshortcuts="Meta\+K"[\s\S]*<KbdGroup className="maka-shortcut-group" aria-hidden="true">[\s\S]*<Kbd className="maka-shortcut-kbd">⌘<\/Kbd>[\s\S]*<Kbd className="maka-shortcut-kbd">K<\/Kbd>/,
+      'hero command hint must keep semantic aria-keyshortcuts while rendering visual keys through COSS Kbd',
+    );
+    assert.match(
+      components,
+      /copy\.streamingHintPrefix\} <Kbd className="maka-shortcut-kbd">Esc<\/Kbd> \{copy\.streamingHintInterrupt/,
+      'streaming interruption hint should keep Esc visible through COSS Kbd',
+    );
+    assert.doesNotMatch(
+      components,
+      /<kbd\b/,
+      'components.tsx should not reintroduce hand-rolled shortcut glyphs now that COSS Kbd is available',
     );
   });
 

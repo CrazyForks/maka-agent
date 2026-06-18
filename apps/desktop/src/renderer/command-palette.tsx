@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import type { LlmConnection, SessionSummary, SettingsSection, ThemePreference } from '@maka/core';
 import type { NavSelection } from '@maka/ui';
-import { Button, Input, useModalA11y } from '@maka/ui';
+import { Button, Input, Kbd, KbdGroup, useModalA11y } from '@maka/ui';
 import { SETTINGS_NAV } from './settings/SettingsModal';
 import { useThreadSearch } from './use-thread-search';
 import { buildContentSearchCommands } from './command-palette-content-search';
@@ -689,7 +689,7 @@ export function CommandPalette(props: {
             aria-activedescendant={combined[highlight] ? `cmd-${combined[highlight]!.id}` : undefined}
           />
           <span className="maka-palette-input-hint" aria-hidden="true">
-            <kbd>↵</kbd> 执行 · <kbd>Esc</kbd> 关闭
+            <Kbd className="maka-shortcut-kbd">↵</Kbd> 执行 · <Kbd className="maka-shortcut-kbd">Esc</Kbd> 关闭
           </span>
         </div>
         <div className="maka-palette-list" id="maka-palette-list" role="listbox" aria-label="命令面板结果">
@@ -744,11 +744,17 @@ export function CommandPalette(props: {
           )}
         </div>
         <div className="maka-palette-footer">
-          <span><kbd>↑</kbd><kbd>↓</kbd> 选择</span>
+          <span>
+            <KbdGroup className="maka-shortcut-group">
+              <Kbd className="maka-shortcut-kbd">↑</Kbd>
+              <Kbd className="maka-shortcut-kbd">↓</Kbd>
+            </KbdGroup>
+            选择
+          </span>
           <span>{PALETTE_DELIM}</span>
-          <span><kbd>↵</kbd> 执行</span>
+          <span><Kbd className="maka-shortcut-kbd">↵</Kbd> 执行</span>
           <span>{PALETTE_DELIM}</span>
-          <span><kbd>Esc</kbd> 关闭</span>
+          <span><Kbd className="maka-shortcut-kbd">Esc</Kbd> 关闭</span>
         </div>
       </div>
     </div>

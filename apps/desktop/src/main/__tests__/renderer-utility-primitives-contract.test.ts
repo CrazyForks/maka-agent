@@ -41,19 +41,23 @@ describe('renderer utility surfaces use shared UI primitives', () => {
   it('keeps command palette search and rows on shared primitives', async () => {
     const source = await readFile(join(process.cwd(), 'src/renderer/command-palette.tsx'), 'utf8');
 
-    assert.match(source, /import \{ Button, Input, useModalA11y \} from '@maka\/ui';/);
+    assert.match(source, /import \{ Button, Input, Kbd, KbdGroup, useModalA11y \} from '@maka\/ui';/);
     assert.doesNotMatch(source, /<input\b/, 'Command palette search must use shared Input');
     assert.doesNotMatch(source, /<button\b/, 'Command palette rows must use shared Button');
+    assert.doesNotMatch(source, /<kbd\b/, 'Command palette shortcut glyphs must use COSS Kbd');
     assert.match(source, /<Input[\s\S]*className="maka-palette-input"/);
     assert.match(source, /<Button[\s\S]*role="option"[\s\S]*className="maka-palette-item"/);
+    assert.match(source, /<KbdGroup className="maka-shortcut-group">[\s\S]*<Kbd className="maka-shortcut-kbd">↑<\/Kbd>[\s\S]*<Kbd className="maka-shortcut-kbd">↓<\/Kbd>/);
   });
 
   it('keeps keyboard help close action on shared Button', async () => {
     const source = await readFile(join(process.cwd(), 'src/renderer/keyboard-help.tsx'), 'utf8');
 
-    assert.match(source, /import \{ Button, useModalA11y \} from '@maka\/ui';/);
+    assert.match(source, /import \{ Button, Kbd, useModalA11y \} from '@maka\/ui';/);
     assert.doesNotMatch(source, /<button\b/, 'KeyboardHelpModal close action must use shared Button');
+    assert.doesNotMatch(source, /<kbd\b/, 'KeyboardHelpModal shortcut glyphs must use COSS Kbd');
     assert.match(source, /<Button[\s\S]*className="settingsCloseButton"[\s\S]*aria-label="关闭快捷键面板"/);
+    assert.match(source, /<Kbd className="maka-shortcut-kbd">\{key\}<\/Kbd>/);
   });
 
   it('keeps toast actions and confirm dialog buttons on shared Button without legacy classes', async () => {

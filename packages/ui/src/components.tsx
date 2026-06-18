@@ -129,6 +129,7 @@ import {
 } from './ui.js';
 import { Alert, AlertDescription, AlertTitle } from './coss/alert.js';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './coss/empty.js';
+import { Kbd, KbdGroup } from './coss/kbd.js';
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from './coss/menu.js';
 
 /**
@@ -4470,13 +4471,16 @@ function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void; userL
          *     announces a real keyboard shortcut and command-palette
          *     entrypoint to assistive tech users; hiding it strips
          *     real navigation info from the AT tree.
-         *   - Only the visual `<kbd>` glyphs are aria-hidden (their
+         *   - Only the visual COSS Kbd glyphs are aria-hidden (their
          *     content reads noisily as "command K"); the textual hint
          *     stays in the AT tree.
          *   - `aria-keyshortcuts` lets AT users know the chord without
-         *     parsing the visual `<kbd>` glyphs. */}
+         *     parsing the visual key glyphs. */}
         <span className="maka-hero-palette-hint" aria-keyshortcuts="Meta+K">
-          <kbd aria-hidden="true">⌘</kbd><kbd aria-hidden="true">K</kbd>
+          <KbdGroup className="maka-shortcut-group" aria-hidden="true">
+            <Kbd className="maka-shortcut-kbd">⌘</Kbd>
+            <Kbd className="maka-shortcut-kbd">K</Kbd>
+          </KbdGroup>
           <span>{copy.paletteHint}</span>
         </span>
       </header>
@@ -6041,7 +6045,7 @@ export const Composer = forwardRef<
             ) : props.streaming ? (
               <span className="maka-composer-streaming-hint">
                 <span className="maka-composer-streaming-dot" aria-hidden="true" />
-                {copy.streamingHintPrefix} <kbd>Esc</kbd> {copy.streamingHintInterrupt}
+                {copy.streamingHintPrefix} <Kbd className="maka-shortcut-kbd">Esc</Kbd> {copy.streamingHintInterrupt}
               </span>
             ) : (
               null
