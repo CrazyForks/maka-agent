@@ -215,8 +215,10 @@ describe('prompt acceptance policy', () => {
       scored: 2,
       passed: 2,
       passEligibleRate: 2 / 3,
-      coverageRate: 0.5,
-      unscoredTaskIds: ['task-c', 'task-d'],
+      coverageRate: 2 / 3,
+      unscoredTaskIds: ['task-c'],
+      infraFailedTaskIds: ['task-d'],
+      plumbingFailedTaskIds: [],
       missingTaskIds: [],
     });
   });
@@ -268,7 +270,7 @@ describe('prompt acceptance policy', () => {
       coverageNoiseBand: 0,
       lastKeptEvents: [
         completed('in-a', true),
-        completed('in-b', false),
+        infraFailed('in-b'),
       ],
       candidateEvents: [
         completed('in-a', true),
@@ -279,7 +281,7 @@ describe('prompt acceptance policy', () => {
 
     assert.equal(decision.decision, 'discard');
     assert.equal(decision.reason, 'coverage_regressed');
-    assert.deepEqual(decision.metrics.candidate.heldIn.unscoredTaskIds, ['in-b']);
+    assert.deepEqual(decision.metrics.candidate.heldIn.infraFailedTaskIds, ['in-b']);
   });
 
   test('discards candidates that fall below the held-out original floor', () => {

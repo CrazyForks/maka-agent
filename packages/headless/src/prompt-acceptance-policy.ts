@@ -24,6 +24,8 @@ export interface PromptAcceptancePartitionSummary {
   passEligibleRate: number | null;
   coverageRate: number | null;
   unscoredTaskIds: string[];
+  infraFailedTaskIds: string[];
+  plumbingFailedTaskIds: string[];
   missingTaskIds: string[];
 }
 
@@ -291,10 +293,15 @@ export function summarizePromptAcceptancePartition(
     scored: scored.length,
     passed: passed.length,
     passEligibleRate: eligible.length > 0 ? passed.length / eligible.length : null,
-    coverageRate: taskIds.length > 0 ? scored.length / taskIds.length : null,
+    coverageRate: eligible.length > 0 ? scored.length / eligible.length : null,
     unscoredTaskIds: taskIds.filter((taskId) => {
       const event = byTask.get(taskId);
-      return event !== undefined && !event.scored;
+      return event !== undefined && event.eligible && !event.scored;
+    }),
+    infraFailedTaskIds: taskIds.filter((taskId) => byTask.get(taskId)?.type === 'task_infra_failed'),
+    plumbingFailedTaskIds: taskIds.filter((taskId) => {
+      const event = byTask.get(taskId);
+      return event !== undefined && event.type === 'task_plumbing_failed';
     }),
     missingTaskIds: taskIds.filter((taskId) => !byTask.has(taskId)),
   };
@@ -339,6 +346,9 @@ function acceptanceReason(
   const heldOutCandidate = metrics.candidate.heldOut;
   const heldOutReference = metrics.original.heldOut;
 
+  if (hasBlockingTaskFailure(heldInCandidate) || hasBlockingTaskFailure(heldOutCandidate)) {
+    return 'coverage_regressed';
+  }
   if (regressed(heldInCandidate.coverageRate, heldInReference.coverageRate, input.coverageNoiseBand)) {
     return 'coverage_regressed';
   }
@@ -382,6 +392,12 @@ function nextHeldInReferencePassEligibleRate(input: {
   return input.previousReference === null
     ? bankedReference
     : Math.max(input.previousReference, bankedReference);
+}
+
+function hasBlockingTaskFailure(summary: PromptAcceptancePartitionSummary): boolean {
+  return summary.missingTaskIds.length > 0
+    || summary.infraFailedTaskIds.length > 0
+    || summary.plumbingFailedTaskIds.length > 0;
 }
 
 function improved(candidate: number | null, reference: number | null, noiseBand: number): boolean {
