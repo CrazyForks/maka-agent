@@ -106,6 +106,15 @@ export {
   summarizePromptAcceptancePartition,
 } from './prompt-acceptance-policy.js';
 export type {
+  PromptStructuralSmokeFailure,
+  PromptStructuralSmokeReport,
+  PromptStructuralSmokeReportInput,
+} from './prompt-structural-smoke.js';
+export {
+  promptStructuralSmokeReport,
+  renderPromptStructuralSmokeMarkdown,
+} from './prompt-structural-smoke.js';
+export type {
   BenchmarkAdapter,
   BenchmarkAdapterRegistry,
   BenchmarkInstanceRef,
