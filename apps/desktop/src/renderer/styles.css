@@ -7912,7 +7912,7 @@ button:active {
   display: grid;
   gap: 3px;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--foreground-3);
   color: var(--foreground);
   padding: 10px 12px;
@@ -7956,16 +7956,7 @@ button:active {
   grid-template-columns: 1fr;
   gap: 10px;
   border: 1px solid var(--border);
-  /* PR-UI-LAYOUT-15: provider catalog card chrome refresh
-   * (Settings → Models → 推荐服务/国内服务/... grid).
-   * - Radius 18 → 14 (oversized rounded corner was a leftover from
-   *   the pre-warm-canvas era; 14 sits between the chip 10 and the
-   *   settings modal 18, matching reference screenshot 3 provider tiles).
-   * - Background `--foreground-2` → transparent (sits lightly on
-   *   the panel, like the chip lightening).
-   * - Hover state adds a lift transform to make selection feel
-   *   tangible, matching `.maka-onboarding-card`. */
-  border-radius: 14px;
+  border-radius: 8px;
   background: transparent;
   color: var(--foreground);
   padding: 14px;
@@ -8024,7 +8015,7 @@ button:active {
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--foreground-5);
   color: var(--brand-deep);
   font-size: 15px;
@@ -8060,7 +8051,7 @@ button:active {
 .providerCatalogTitle em,
 .providerCatalogCount {
   width: fit-content;
-  border-radius: 999px;
+  border-radius: 4px;
   background: var(--foreground-5);
   color: var(--foreground-60);
   padding: 2px 7px;
@@ -8795,13 +8786,13 @@ button:active {
   position: absolute;
   top: 10px;
   right: 10px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: oklch(from var(--info) l c h / 0.12);
   color: var(--info-text);
   padding: 2px 8px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 .providerCatalogCard[data-status="experimental"]::after {
@@ -8809,7 +8800,7 @@ button:active {
   position: absolute;
   top: 10px;
   right: 10px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: oklch(from var(--warning) l c h / 0.14);
   color: var(--warning-text);
   padding: 2px 8px;
