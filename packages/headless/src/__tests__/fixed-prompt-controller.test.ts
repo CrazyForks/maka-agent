@@ -316,6 +316,45 @@ describe('fixed prompt controller', () => {
     });
   });
 
+  test('runs concurrent tasks while recording deterministic task order', async () => {
+    await withDir(async (dir) => {
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsJsonlPath = join(dir, 'results.jsonl');
+      await writeFile(systemPromptPath, 'fixed prompt\n', 'utf8');
+
+      let inFlight = 0;
+      let maxInFlight = 0;
+      const result = await runFixedPromptController({
+        runId: 'run-1',
+        roundId: 'round-1',
+        config,
+        systemPromptPath,
+        resultsJsonlPath,
+        resultsTsvPath: join(dir, 'results.tsv'),
+        tasks: [
+          { id: 'task-a', path: '/bench/task-a' },
+          { id: 'task-b', path: '/bench/task-b' },
+          { id: 'task-c', path: '/bench/task-c' },
+        ],
+        maxConcurrency: 2,
+        harborRunner: async ({ task }) => {
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await delay(task.id === 'task-a' ? 20 : 0);
+          inFlight -= 1;
+          return harborOutput({ taskId: task.id });
+        },
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.equal(maxInFlight, 2);
+      assert.deepEqual(result.taskIds, ['task-a', 'task-b', 'task-c']);
+      const events = (await readFile(resultsJsonlPath, 'utf8')).trimEnd().split('\n').map((line) => JSON.parse(line));
+      assert.deepEqual(events.map((event) => event.taskId), ['task-a', 'task-b', 'task-c']);
+    });
+  });
+
   test('reads Harbor reward and Maka cell output artifacts', async () => {
     await withDir(async (dir) => {
       const harborResultPath = join(dir, 'result.json');
@@ -515,6 +554,10 @@ function harborOutput(input: {
 function idFactory(): () => string {
   let i = 0;
   return () => `id-${++i}`;
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function withDir(fn: (dir: string) => Promise<void>): Promise<void> {

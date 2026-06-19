@@ -152,6 +152,7 @@ export interface RunFixedPromptControllerInput {
   tasks: readonly FixedPromptTask[];
   maxInfraFailureRate?: number;
   costCeilingUsd?: number;
+  maxConcurrency?: number;
   harborRunner: HarborTaskRunner;
   now?: () => number;
   newId?: () => string;
@@ -186,12 +187,17 @@ export async function runFixedPromptController(
     maxInfraFailureRate: input.maxInfraFailureRate,
     costCeilingUsd: input.costCeilingUsd,
   });
+  const maxConcurrency = normalizeMaxConcurrency(input.maxConcurrency);
 
-  for (const task of input.tasks) {
+  for (let index = 0; index < input.tasks.length;) {
     if (stopReason) break;
-    if (completed.has(task.id)) continue;
-
-    const event = await runTaskAndBuildEvent({
+    const batch: FixedPromptTask[] = [];
+    while (batch.length < maxConcurrency && index < input.tasks.length) {
+      const task = input.tasks[index++]!;
+      if (!completed.has(task.id)) batch.push(task);
+    }
+    if (batch.length === 0) continue;
+    const batchEvents = await Promise.all(batch.map((task) => runTaskAndBuildEvent({
       input,
       task,
       config,
@@ -199,10 +205,12 @@ export async function runFixedPromptController(
       expectedPromptHash,
       id: newId(),
       ts: now(),
-    });
-    await appendFixedPromptWalEvent(input.resultsJsonlPath, event);
-    events.push(event);
-    completed.set(task.id, event);
+    })));
+    for (const event of batchEvents) {
+      await appendFixedPromptWalEvent(input.resultsJsonlPath, event);
+      events.push(event);
+      completed.set(event.taskId, event);
+    }
     stopReason = controllerStopReason({
       events: [...completed.values()],
       taskCount: input.tasks.length,
@@ -546,6 +554,14 @@ function infraFailureRate(events: readonly FixedPromptTaskWalEvent[], taskCount:
 
 function taskEventsCostUsd(events: readonly FixedPromptTaskWalEvent[]): number {
   return sum(events.map((event) => event.type !== 'task_infra_failed' ? event.tokenSummary.costUsd : 0));
+}
+
+function normalizeMaxConcurrency(value: number | undefined): number {
+  if (value === undefined) return 1;
+  if (!Number.isFinite(value) || value < 1) {
+    throw new Error('maxConcurrency must be at least 1');
+  }
+  return Math.floor(value);
 }
 
 async function truncateTornWalTail(path: string): Promise<void> {
