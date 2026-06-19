@@ -473,6 +473,7 @@ describe('localized main shell contract', () => {
     const emptyHero = components.match(/function EmptyChatHero[\s\S]*?function DeepResearchEmptyHero/)?.[0] ?? '';
     const composerCard = extractCssRule(styles, '.composer .maka-composer-inner');
     const composerFocus = extractCssRule(styles, '.composer .maka-composer-inner:focus-within');
+    const composerToolbar = extractCssRule(styles, '.composerActions');
     const composerShell = extractCssRule(styles, '.composer');
     const workspaceRow = extractCssRule(styles, '.maka-composer-workspace-row');
     const workspacePicker = extractCssRule(styles, '.maka-composer-workspace-picker');
@@ -513,8 +514,15 @@ describe('localized main shell contract', () => {
     assert.doesNotMatch(composerCard, /0 2px 8px/);
     assert.doesNotMatch(composerCard, /var\(--shadow-medium\)/);
     assert.ok(composerFocus, '.composer .maka-composer-inner:focus-within rule must exist');
+    assert.match(composerFocus, /0 0 0 1px oklch\(from var\(--foreground\) l c h \/ 0\.12\)/);
+    assert.match(composerFocus, /0 0 0 3px oklch\(from var\(--foreground\) l c h \/ 0\.035\)/);
+    assert.doesNotMatch(composerFocus, /var\(--accent\)/);
     assert.doesNotMatch(composerFocus, /0 2px 8px/);
     assert.doesNotMatch(composerFocus, /var\(--shadow-medium\)/);
+    assert.ok(composerToolbar, '.composerActions rule must exist');
+    assert.match(composerToolbar, /margin-top:\s*12px/);
+    assert.match(composerToolbar, /padding-top:\s*10px/);
+    assert.match(composerToolbar, /border-top:\s*1px solid oklch\(from var\(--foreground\) l c h \/ 0\.055\)/);
     assert.match(components, /import \{[\s\S]*ArrowUp,[\s\S]*\} from 'lucide-react';/);
     assert.match(components, /className="maka-composer-send-button"[\s\S]*size="icon-sm"[\s\S]*aria-label=\{buttonCopy\.sendLabel\}[\s\S]*<ArrowUp size=\{16\} strokeWidth=\{2\.1\} aria-hidden="true" \/>/);
     const sendButton = extractCssRule(styles, '.maka-composer-send-button');

@@ -4820,8 +4820,8 @@ button:active {
 
 .composer .maka-composer-inner:focus-within {
   box-shadow:
-    0 0 0 1px oklch(from var(--accent) l c h / 0.20),
-    0 0 0 3px oklch(from var(--accent) l c h / 0.10);
+    0 0 0 1px oklch(from var(--foreground) l c h / 0.12),
+    0 0 0 3px oklch(from var(--foreground) l c h / 0.035);
 }
 
 .composer textarea {
@@ -4852,7 +4852,9 @@ button:active {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.055);
 }
 
 .composerActions > div {
