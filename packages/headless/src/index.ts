@@ -30,6 +30,7 @@ export type {
   FixedPromptTask,
   FixedPromptTaskCompletedEvent,
   FixedPromptTaskInfraFailedEvent,
+  FixedPromptTaskPlumbingFailedEvent,
   FixedPromptWalEvent,
   HarborTaskRunInput,
   HarborTaskRunOutput,
@@ -40,6 +41,7 @@ export type {
 export {
   FIXED_PROMPT_WAL_SCHEMA_VERSION,
   appendFixedPromptWalEvent,
+  hashSystemPrompt,
   readHarborTaskRunOutput,
   readFixedPromptWal,
   runFixedPromptController,

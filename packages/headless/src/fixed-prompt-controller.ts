@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { validateHarborCellOutput, type HarborCellOutput, type HarborCellTokenSummary } from './cell-output.js';
@@ -72,7 +72,35 @@ export interface FixedPromptTaskInfraFailedEvent {
   error: string;
 }
 
-export type FixedPromptWalEvent = FixedPromptTaskCompletedEvent | FixedPromptTaskInfraFailedEvent;
+export interface FixedPromptTaskPlumbingFailedEvent {
+  schemaVersion: typeof FIXED_PROMPT_WAL_SCHEMA_VERSION;
+  type: 'task_plumbing_failed';
+  id: string;
+  ts: number;
+  runId: string;
+  roundId: string;
+  taskId: string;
+  status: 'plumbing_failed';
+  passed: false;
+  scored: false;
+  eligible: false;
+  errorClass: 'zero_cost_with_tokens' | 'prompt_hash_mismatch';
+  error: string;
+  promptHash?: string;
+  expectedPromptHash?: string;
+  tokenSummary: HarborCellTokenSummary;
+  steps: number;
+  durationMs: number;
+  runtimeEventsPath: string;
+  harbor: {
+    reward: number;
+  };
+}
+
+export type FixedPromptWalEvent =
+  | FixedPromptTaskCompletedEvent
+  | FixedPromptTaskInfraFailedEvent
+  | FixedPromptTaskPlumbingFailedEvent;
 
 export interface RunFixedPromptControllerInput {
   runId: string;
@@ -101,6 +129,7 @@ export async function runFixedPromptController(
   const now = input.now ?? Date.now;
   const newId = input.newId ?? randomId;
   const systemPrompt = await readFile(input.systemPromptPath, 'utf8');
+  const expectedPromptHash = hashSystemPrompt(systemPrompt);
   const config = { ...input.config, systemPrompt };
   const events = await readFixedPromptWal(input.resultsJsonlPath);
   const completed = terminalTaskEvents(events, input.runId, input.roundId);
@@ -113,6 +142,7 @@ export async function runFixedPromptController(
       task,
       config,
       systemPrompt,
+      expectedPromptHash,
       id: newId(),
       ts: now(),
     });
@@ -129,8 +159,8 @@ export async function runFixedPromptController(
   return {
     taskIds: resultEvents.map((event) => event.taskId),
     events: resultEvents,
-    totalTokens: sum(resultEvents.map((event) => event.type === 'task_completed' ? event.tokenSummary.total : 0)),
-    totalCostUsd: sum(resultEvents.map((event) => event.type === 'task_completed' ? event.tokenSummary.costUsd : 0)),
+    totalTokens: sum(resultEvents.map((event) => event.type !== 'task_infra_failed' ? event.tokenSummary.total : 0)),
+    totalCostUsd: sum(resultEvents.map((event) => event.type !== 'task_infra_failed' ? event.tokenSummary.costUsd : 0)),
     resultsTsvPath: input.resultsTsvPath,
   };
 }
@@ -189,10 +219,10 @@ export async function writeFixedPromptResultsTsv(
     String(event.scored),
     String(event.eligible),
     event.errorClass ?? '',
-    event.type === 'task_completed' ? event.promptHash ?? '' : '',
-    String(event.type === 'task_completed' ? event.tokenSummary.total : 0),
-    String(event.type === 'task_completed' ? event.tokenSummary.costUsd : 0),
-    event.type === 'task_completed' ? event.runtimeEventsPath : '',
+    event.type !== 'task_infra_failed' ? event.promptHash ?? '' : '',
+    String(event.type !== 'task_infra_failed' ? event.tokenSummary.total : 0),
+    String(event.type !== 'task_infra_failed' ? event.tokenSummary.costUsd : 0),
+    event.type !== 'task_infra_failed' ? event.runtimeEventsPath : '',
   ]);
   const body = [header, ...rows].map((row) => row.map(tsvCell).join('\t')).join('\n');
   await writeFile(path, `${body}\n`, 'utf8');
@@ -203,6 +233,7 @@ async function runTaskAndBuildEvent(input: {
   task: FixedPromptTask;
   config: Config;
   systemPrompt: string;
+  expectedPromptHash: string;
   id: string;
   ts: number;
 }): Promise<FixedPromptWalEvent> {
@@ -214,8 +245,9 @@ async function runTaskAndBuildEvent(input: {
       config: input.config,
       systemPrompt: input.systemPrompt,
     });
-    return taskCompletedEvent({
+    return taskEventFromOutput({
       output,
+      expectedPromptHash: input.expectedPromptHash,
       taskId: input.task.id,
       runId: input.input.runId,
       roundId: input.input.roundId,
@@ -232,6 +264,26 @@ async function runTaskAndBuildEvent(input: {
       ts: input.ts,
     });
   }
+}
+
+function taskEventFromOutput(input: {
+  output: HarborTaskRunOutput;
+  expectedPromptHash: string;
+  taskId: string;
+  runId: string;
+  roundId: string;
+  id: string;
+  ts: number;
+}): FixedPromptTaskCompletedEvent | FixedPromptTaskPlumbingFailedEvent {
+  const plumbingFailure = classifyPlumbingFailure(input.output, input.expectedPromptHash);
+  if (plumbingFailure) {
+    return taskPlumbingFailedEvent({
+      ...input,
+      errorClass: plumbingFailure.errorClass,
+      error: plumbingFailure.error,
+    });
+  }
+  return taskCompletedEvent(input);
 }
 
 function taskCompletedEvent(input: {
@@ -269,6 +321,62 @@ function taskCompletedEvent(input: {
   };
 }
 
+function taskPlumbingFailedEvent(input: {
+  output: HarborTaskRunOutput;
+  expectedPromptHash: string;
+  taskId: string;
+  runId: string;
+  roundId: string;
+  id: string;
+  ts: number;
+  errorClass: FixedPromptTaskPlumbingFailedEvent['errorClass'];
+  error: string;
+}): FixedPromptTaskPlumbingFailedEvent {
+  return {
+    schemaVersion: FIXED_PROMPT_WAL_SCHEMA_VERSION,
+    type: 'task_plumbing_failed',
+    id: input.id,
+    ts: input.ts,
+    runId: input.runId,
+    roundId: input.roundId,
+    taskId: input.taskId,
+    status: 'plumbing_failed',
+    passed: false,
+    scored: false,
+    eligible: false,
+    errorClass: input.errorClass,
+    error: input.error,
+    ...(input.output.cell.promptHash ? { promptHash: input.output.cell.promptHash } : {}),
+    expectedPromptHash: input.expectedPromptHash,
+    tokenSummary: input.output.cell.tokenSummary,
+    steps: input.output.cell.steps,
+    durationMs: input.output.cell.durationMs,
+    runtimeEventsPath: input.output.cell.runtimeEventsPath,
+    harbor: {
+      reward: input.output.harbor.reward,
+    },
+  };
+}
+
+function classifyPlumbingFailure(output: HarborTaskRunOutput, expectedPromptHash: string): {
+  errorClass: FixedPromptTaskPlumbingFailedEvent['errorClass'];
+  error: string;
+} | undefined {
+  if (output.cell.promptHash !== undefined && output.cell.promptHash !== expectedPromptHash) {
+    return {
+      errorClass: 'prompt_hash_mismatch',
+      error: `Harbor cell prompt hash ${output.cell.promptHash} did not match ${expectedPromptHash}`,
+    };
+  }
+  if (output.cell.tokenSummary.total > 0 && output.cell.tokenSummary.costUsd === 0) {
+    return {
+      errorClass: 'zero_cost_with_tokens',
+      error: 'Harbor cell reported token usage but zero costUsd',
+    };
+  }
+  return undefined;
+}
+
 function taskInfraFailedEvent(input: {
   error: unknown;
   taskId: string;
@@ -302,7 +410,13 @@ function terminalTaskEvents(
   const byTask = new Map<string, FixedPromptWalEvent>();
   for (const event of events) {
     if (event.runId !== runId || event.roundId !== roundId) continue;
-    if (event.type === 'task_completed' || event.type === 'task_infra_failed') byTask.set(event.taskId, event);
+    if (
+      event.type === 'task_completed'
+      || event.type === 'task_infra_failed'
+      || event.type === 'task_plumbing_failed'
+    ) {
+      byTask.set(event.taskId, event);
+    }
   }
   return byTask;
 }
@@ -313,6 +427,10 @@ function tsvCell(value: string): string {
 
 function sum(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
+}
+
+export function hashSystemPrompt(systemPrompt: string): string {
+  return `sha256:${createHash('sha256').update(JSON.stringify(systemPrompt)).digest('hex')}`;
 }
 
 async function readJsonObject(path: string): Promise<Record<string, unknown>> {

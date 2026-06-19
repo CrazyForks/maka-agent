@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import type { Config } from '../contracts.js';
 import {
+  hashSystemPrompt,
   readHarborTaskRunOutput,
   runFixedPromptController,
   type FixedPromptWalEvent,
@@ -157,6 +158,62 @@ describe('fixed prompt controller', () => {
       assert.equal(result.events[0]?.errorClass, 'verification_failed');
     });
   });
+
+  test('records zero cost with tokens as a plumbing failure', async () => {
+    await withDir(async (dir) => {
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      await writeFile(systemPromptPath, 'fixed prompt\n', 'utf8');
+
+      const result = await runFixedPromptController({
+        runId: 'run-1',
+        roundId: 'round-1',
+        config,
+        systemPromptPath,
+        resultsJsonlPath: join(dir, 'results.jsonl'),
+        resultsTsvPath: join(dir, 'results.tsv'),
+        tasks: [{ id: 'task-a', path: '/bench/task-a' }],
+        harborRunner: async () =>
+          harborOutput({
+            taskId: 'task-a',
+            tokenSummary: { input: 2, output: 1, reasoning: 0, total: 3, costUsd: 0 },
+          }),
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.equal(result.events[0]?.type, 'task_plumbing_failed');
+      assert.equal(result.events[0]?.passed, false);
+      assert.equal(result.events[0]?.eligible, false);
+      assert.equal(result.events[0]?.errorClass, 'zero_cost_with_tokens');
+      assert.equal(result.totalTokens, 3);
+      assert.equal(result.totalCostUsd, 0);
+    });
+  });
+
+  test('records prompt hash mismatches as plumbing failures', async () => {
+    await withDir(async (dir) => {
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      await writeFile(systemPromptPath, 'fixed prompt\n', 'utf8');
+
+      const result = await runFixedPromptController({
+        runId: 'run-1',
+        roundId: 'round-1',
+        config,
+        systemPromptPath,
+        resultsJsonlPath: join(dir, 'results.jsonl'),
+        resultsTsvPath: join(dir, 'results.tsv'),
+        tasks: [{ id: 'task-a', path: '/bench/task-a' }],
+        harborRunner: async () => harborOutput({ taskId: 'task-a', promptHash: 'sha256:wrong' }),
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.equal(result.events[0]?.type, 'task_plumbing_failed');
+      assert.equal(result.events[0]?.errorClass, 'prompt_hash_mismatch');
+      assert.equal(result.events[0]?.promptHash, 'sha256:wrong');
+      assert.equal(result.events[0]?.expectedPromptHash, hashSystemPrompt('fixed prompt\n'));
+    });
+  });
 });
 
 function taskCompletedEvent(input: { taskId: string }): FixedPromptWalEvent {
@@ -181,15 +238,20 @@ function taskCompletedEvent(input: { taskId: string }): FixedPromptWalEvent {
   };
 }
 
-function harborOutput(input: { taskId: string; reward?: number }): HarborTaskRunOutput {
+function harborOutput(input: {
+  taskId: string;
+  reward?: number;
+  promptHash?: string;
+  tokenSummary?: HarborTaskRunOutput['cell']['tokenSummary'];
+}): HarborTaskRunOutput {
   return {
     harbor: { reward: input.reward ?? 1 },
     cell: {
       schemaVersion: 1,
       status: 'completed',
       runtimeEventsPath: `/logs/${input.taskId}/runtime-events.jsonl`,
-      promptHash: 'sha256:prompt',
-      tokenSummary: { input: 1, output: 2, reasoning: 0, total: 3, costUsd: 0.02 },
+      promptHash: input.promptHash ?? hashSystemPrompt('fixed prompt\n'),
+      tokenSummary: input.tokenSummary ?? { input: 1, output: 2, reasoning: 0, total: 3, costUsd: 0.02 },
       steps: 2,
       durationMs: 40,
       startedAt: 20,
