@@ -11682,17 +11682,19 @@ button:active {
   min-width: 0;
 }
 
-.maka-daily-review-range-tabs > button {
+.maka-daily-review-range-tab {
   flex: 1;
   font-size: 12px;
 }
 
-.maka-daily-review-actions > button {
+.maka-daily-review-copy,
+.maka-daily-review-append,
+.maka-daily-review-save {
   font-size: 12px;
   white-space: nowrap;
 }
 
-.maka-daily-review-range-tabs > button[data-active="true"] {
+.maka-daily-review-range-tab[data-active="true"] {
   background: oklch(from var(--accent) l c h / 0.12);
   color: var(--accent);
   font-weight: 600;
@@ -11715,7 +11717,7 @@ button:active {
   min-width: 0;
 }
 
-.maka-daily-review-alert > button {
+.maka-daily-review-alert-retry {
   flex: none;
   font-size: 12px;
 }

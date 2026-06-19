@@ -1098,7 +1098,8 @@ function DailyReviewPanel(props: {
         <UiButton
           type="button"
           variant="ghost"
-          className="maka-button maka-button-ghost"
+          size="icon-sm"
+          className="maka-daily-review-stepper"
           onClick={() => setOffsetDays((n) => n - range)}
           aria-label={`查看更早一${stepperLabel}`}
         >
@@ -1108,7 +1109,8 @@ function DailyReviewPanel(props: {
         <UiButton
           type="button"
           variant="ghost"
-          className="maka-button maka-button-ghost"
+          size="icon-sm"
+          className="maka-daily-review-stepper"
           onClick={() => setOffsetDays((n) => Math.min(0, n + range))}
           disabled={offsetDays >= 0}
           aria-label={`查看更晚一${stepperLabel}`}
@@ -1123,7 +1125,8 @@ function DailyReviewPanel(props: {
               key={option}
               type="button"
               variant="ghost"
-              className="maka-button maka-button-ghost"
+              size="sm"
+              className="maka-daily-review-range-tab"
               data-active={range === option ? 'true' : undefined}
               aria-pressed={range === option}
               onClick={() => {
@@ -1141,7 +1144,8 @@ function DailyReviewPanel(props: {
               <UiButton
                 type="button"
                 variant="ghost"
-                className="maka-button maka-button-ghost maka-daily-review-copy"
+                size="sm"
+                className="maka-daily-review-copy"
                 onClick={() => void runDailyReviewAction('copy', async () => {
                   const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
                   await props.onCopyMarkdown?.({ markdown: md, label: dayLabel, summary: visibleSummary });
@@ -1158,7 +1162,8 @@ function DailyReviewPanel(props: {
               <UiButton
                 type="button"
                 variant="ghost"
-                className="maka-button maka-button-ghost maka-daily-review-append"
+                size="sm"
+                className="maka-daily-review-append"
                 onClick={() => void runDailyReviewAction('append', async () => {
                   const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
                   await props.onAppendMarkdown?.({ markdown: md, label: dayLabel, summary: visibleSummary });
@@ -1175,7 +1180,8 @@ function DailyReviewPanel(props: {
               <UiButton
                 type="button"
                 variant="ghost"
-                className="maka-button maka-button-ghost maka-daily-review-save"
+                size="sm"
+                className="maka-daily-review-save"
                 onClick={() => void runDailyReviewAction('save', async () => {
                   const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
                   await props.onSaveMarkdown?.({ markdown: md, label: dayLabel, summary: visibleSummary });
@@ -1199,7 +1205,8 @@ function DailyReviewPanel(props: {
             <UiButton
               type="button"
               variant="ghost"
-              className="maka-button maka-button-ghost"
+              size="sm"
+              className="maka-daily-review-alert-retry"
               onClick={() => setReloadToken((n) => n + 1)}
               disabled={loading}
             >
