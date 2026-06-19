@@ -241,3 +241,92 @@ sidebar 是它左侧的一块次要区域，**不是独立的卡片**。
   由 **@kenji 主刀**（msg `94fe5fdd`），yuejing 让 lane 退到 token/视觉支援，
   xuan 之前在 PlanReminderPanel + token 调整
 - msg `30cf5a69`：「不用纠结向前兼容」补充确认
+- msg `b067043b`：「现在和 qoderwork 布局还差好多啊，一定要非常细致的，细节的学习」
+
+## 11. QoderWork composer card 细节规格（2026-06-19 15:28 截图 `/tmp/qoder-detail.png`）
+
+> 这是 task #67 后续切片的实施参考，给 @kenji 的 hero/composer detail lane 用。
+
+### 11.1 卡片几何
+- 宽度：~640px（fixed/centered，不随 hero 文字宽度自适应）
+- 圆角：~12–14px（明显比 Maka 现在的 input 圆角大）
+- 描边：1px hairline，颜色看起来是 `oklch(0.92 0 0)` 级别的中浅灰，无 shadow
+- 内 padding：上下 14–16px，左右 16–18px
+- 高度（空态）：~88px（textarea + bottom toolbar）
+
+### 11.2 内部结构（从上到下）
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [描述任务，/ 快捷调用，@ 添加上下文，标准模式经济高效]      │ ← textarea (1 line height 空态)
+│                                                             │
+│ [+]  [蛙]  [💬 通用 ▾]            [🔧 标准 ▾] [🎤] [⬆️]   │ ← bottom toolbar
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 11.3 Toolbar 内左侧三个控件（顺序固定）
+1. `[+]` 圆形 icon button（~30×30px），灰色 outline border，hover 加深
+   - 功能：附件 / 上下文添加（picker menu）
+   - **Maka 对应**：composer 的 + 按钮
+2. `[蛙]` 圆形 icon button（~30×30px），QoderWork 自己的吉祥物
+   - **不抄**（per WAWQAQ msg `246a09a9`）。Maka 可以省略这个槽，或者放一个工具/模式 icon
+3. `[💬 通用 ▾]` pill button（~74px wide），淡灰 outline border + 内联 icon + 文字 + caret
+   - 功能：选择 chat type/profile（通用 / 编程 / 翻译 等）
+   - **Maka 对应**：可能可以做成 mode/profile picker；目前 Maka 顶部有 "只读/确认/执行" 三段，与 QoderWork 的下拉不同 —— 不强求对齐
+
+### 11.4 Toolbar 内右侧三个控件
+1. `[🔧 标准 ▾]` pill button（~70px wide），淡灰 outline + 内联 icon + 文字 + caret
+   - 功能：选择推理模式（标准 / 深度 / 快速 等）
+   - **Maka 对应**：模型选择器，目前在 chat header 顶部独立组件
+2. `[🎤]` 圆形 icon button（~30×30px），无 border 透明背景
+   - 功能：语音录入
+   - **Maka 对应**：composer 现在已经有麦克风 icon
+3. `[⬆️]` 圆形 send button（~30×30px），**黑色填充背景 + 白色箭头**（典型 QoderWork 强调风格）
+   - **Maka 当前**：「发送」文字按钮，蓝色 outline。**差异点**：QoderWork 用 icon-only 黑色圆形，比 text button 更紧凑
+   - **改造建议**：把"发送"button 改为 icon-only 黑色圆形 + 上箭头（≈ lucide `ArrowUp` or `SendHorizontal`）
+
+### 11.5 Textarea 内容
+- placeholder 字号：~14px，灰色 `oklch(0.55 0 0)`
+- 实际输入字号：~14px
+- 多行时：textarea 高度根据内容自适应到一定上限（推测 6–8 行后开始 scroll）
+- 占位文字提示 slash command + at-mention：`描述任务，/ 快捷调用，@ 添加上下文，标准模式经济高效`
+
+### 11.6 卡片下方的「选择工作目录 ▾」
+
+```
+[📁 选择工作目录 ▾]
+```
+
+- 紧贴 composer 卡片底部下方 ~12px，居左对齐与 composer 的左 inset
+- 不在 composer 内，是单独一条小型 link button
+- 功能：workspace folder picker
+- **Maka 对应**：目前 OnboardingHero 有 `<WorkspaceFolderPicker>` 在 ready 分支，可以参考类似位置 —— 但当前没有跟 composer 关联
+
+### 11.7 主区窗口右上角控件（不在 composer 卡片内）
+
+```
+                                                  [问题反馈]  [⊞]  [?]
+```
+
+- `[问题反馈]` 链接 button
+- `[⊞]` （grid icon）九宫格 menu，可能是切换 view
+- `[?]` 帮助 popover
+
+**Maka 对应**：当前 Maka 顶部有 "只读/确认/执行" 三段 permission switch + 命令面板入口 ⌘K，逻辑不同。可以保留 Maka 现在的设计，不抄 QoderWork 这一区。
+
+---
+
+## 12. 已落地的细节对齐（截至 2026-06-19 17:30，commit `417a9af`）
+
+@kenji 在 task #68 落了一刀：
+- ✅ Sidebar 顶部加 search icon + sidebar collapse toggle（用 `PanelLeftOpen / PanelLeftClose`）
+- ✅ EmptyChatHero 6-chip prompt grid 删掉
+- ✅ EmptyChatHero intro 改写为单句引导
+- ✅ Collapsed icon-only rail 60px，expanded 210px，跟 QoderWork 一致
+- ✅ sidebar / 主区共用 window background，sidebar 仅 1px border-right + 微调 bg tint，无 card 阴影
+
+剩下要做的（按 §11 spec）：
+- ⏳ Composer card 几何对齐：~640px wide center, 12–14px radius, 1px hairline, no shadow
+- ⏳ Composer 发送按钮：黑色圆形 + 上箭头 icon（替换现在的「发送」文字按钮）
+- ⏳ Composer toolbar 控件顺序调整
+- ⏳ "选择工作目录" 下拉放在 composer 下方
+- ⏳ 主区右上角的 "问题反馈 / 帮助" 暂不抄
