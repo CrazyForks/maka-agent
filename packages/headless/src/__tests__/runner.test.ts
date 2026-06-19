@@ -359,3 +359,69 @@ describe('engine-level grading-boundary validation (not only the CLI)', () => {
     });
   });
 });
+
+describe('Config.systemPrompt (benchmark config variable, not session state)', () => {
+  // A factory that captures the systemPrompt it would hand to the backend,
+  // proving the benchmark's registerBackends closure can read config.systemPrompt
+  // and pass it through — mirroring the desktop path. The harness itself does
+  // NOT thread systemPrompt through BackendFactoryContext (that channel is the
+  // child-agent instruction); the factory owns it.
+  const registerCapturingBackend = (captured: { systemPrompt?: string }[]) =>
+    (registry: BackendRegistry, context: HeadlessBackendContext): void => {
+      captured.push({ systemPrompt: context.config.systemPrompt });
+      registry.register('fake', (ctx) =>
+        new FakeBackend({ sessionId: ctx.sessionId, header: ctx.header, store: ctx.store }),
+      );
+    };
+
+  test('factory closure can read config.systemPrompt and pass it to the backend', async () => {
+    await withDirs(async (fixtureDir, storageRoot) => {
+      await writeFile(join(fixtureDir, 'marker.txt'), 'present', 'utf8');
+      const configWithPrompt: Config = {
+        ...fakeConfig,
+        systemPrompt: 'You are a benchmark agent. Use tools, do not narrate.',
+      };
+      const captured: { systemPrompt?: string }[] = [];
+      const task: Task = {
+        id: 'prompt-task',
+        instruction: 'do the thing',
+        workspaceDir: fixtureDir,
+        verification: { command: 'test -f marker.txt', protectedPaths: [] },
+      };
+
+      const result = await runExperiment(configWithPrompt, task, {
+        storageRoot,
+        registerBackends: registerCapturingBackend(captured),
+      });
+
+      assert.equal(result.status, 'completed');
+      assert.equal(captured.length, 1);
+      assert.equal(
+        captured[0]?.systemPrompt,
+        'You are a benchmark agent. Use tools, do not narrate.',
+        'factory closure must receive config.systemPrompt',
+      );
+    });
+  });
+
+  test('omitting systemPrompt leaves it undefined in the factory context (no default injection)', async () => {
+    await withDirs(async (fixtureDir, storageRoot) => {
+      await writeFile(join(fixtureDir, 'marker.txt'), 'present', 'utf8');
+      const captured: { systemPrompt?: string }[] = [];
+      const task: Task = {
+        id: 'no-prompt-task',
+        instruction: 'do the thing',
+        workspaceDir: fixtureDir,
+        verification: { command: 'test -f marker.txt', protectedPaths: [] },
+      };
+
+      await runExperiment(fakeConfig, task, {
+        storageRoot,
+        registerBackends: registerCapturingBackend(captured),
+      });
+
+      assert.equal(captured.length, 1);
+      assert.equal(captured[0]?.systemPrompt, undefined, 'no systemPrompt should be injected when Config omits it');
+    });
+  });
+});
