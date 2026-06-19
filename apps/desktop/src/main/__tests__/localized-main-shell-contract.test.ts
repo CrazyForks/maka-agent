@@ -20,7 +20,7 @@ describe('localized main shell contract', () => {
     const settings = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8');
     const providers = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'ProvidersPanel.tsx'), 'utf8');
     const commandPalette = await readFile(join(process.cwd(), 'src', 'renderer', 'command-palette.tsx'), 'utf8');
-    const zhComposerBlock = components.match(/zh: \{\n\s*placeholder: '描述任务，\/ 快捷调用，@ 添加上下文…'[\s\S]*?\n\s*\},\n\s*en:/)?.[0] ?? '';
+    const zhComposerBlock = components.match(/zh: \{\n\s*placeholder: '描述任务，\/ 快捷调用，@ 添加上下文，标准模式经济高效'[\s\S]*?\n\s*\},\n\s*en:/)?.[0] ?? '';
 
     assert.match(components, /aria-label=\{session\.isFlagged \? '取消置顶对话' : '置顶对话'\}/);
     assert.doesNotMatch(components, /aria-label=\{session\.isFlagged \? 'Unpin chat' : 'Pin chat'\}/);
@@ -594,12 +594,13 @@ describe('localized main shell contract', () => {
     assert.doesNotMatch(composerFocus, /0 2px 8px/);
     assert.doesNotMatch(composerFocus, /var\(--shadow-medium\)/);
     assert.ok(composerToolbar, '.composerActions rule must exist');
+    assert.match(composerToolbar, /gap:\s*12px/);
     assert.match(composerToolbar, /margin-top:\s*12px/);
     assert.match(composerToolbar, /padding-top:\s*10px/);
     assert.match(composerToolbar, /border-top:\s*1px solid oklch\(from var\(--foreground\) l c h \/ 0\.055\)/);
     assert.ok(composerTextarea, '.composer textarea rule must exist');
     assert.match(composerTextarea, /min-height:\s*var\(--h-composer-min,\s*84px\)/);
-    assert.match(styles, /\.maka-composer-left-controls,\n\.maka-composer-right-controls \{[\s\S]*?gap:\s*6px/);
+    assert.match(styles, /\.maka-composer-left-controls,\n\.maka-composer-right-controls \{[\s\S]*?gap:\s*12px/);
     assert.match(styles, /\.maka-composer-role-chip,\n\.maka-composer-mode-chip,\n\.maka-composer-model-chip \{[\s\S]*?height:\s*32px[\s\S]*?border-radius:\s*8px/);
     assert.match(components, /className="maka-composer-tool-button maka-composer-context-plus"[\s\S]*aria-label=\{pendingImportAction === 'file' \? '正在添加上下文' : '添加上下文'\}[\s\S]*<Plus size=\{15\}/);
     assert.match(components, /className="maka-composer-role-chip"[\s\S]*aria-label="通用助手"[\s\S]*通用[\s\S]*<ChevronDown size=\{12\}/);
@@ -619,6 +620,11 @@ describe('localized main shell contract', () => {
     assert.match(sendButton, /border-radius:\s*999px/);
     assert.match(sendButton, /background:\s*#000/);
     assert.match(sendButton, /color:\s*#fff/);
+    const disabledSendButton = extractCssRule(styles, '.maka-composer-send-button:disabled');
+    assert.ok(disabledSendButton, '.maka-composer-send-button:disabled rule must exist');
+    assert.match(disabledSendButton, /background:\s*#000/);
+    assert.match(disabledSendButton, /color:\s*#fff/);
+    assert.match(disabledSendButton, /opacity:\s*1/);
     assert.match(components, /workspacePicker\?: \{[\s\S]*label\?: string;[\s\S]*branch\?: string \| null;[\s\S]*onOpen\(\): void;[\s\S]*\};/);
     assert.match(components, /className="maka-composer-workspace-picker"[\s\S]*<FolderOpen size=\{13\}[\s\S]*<span>选择工作目录<\/span>[\s\S]*<ChevronDown size=\{12\}/);
     assert.ok(workspaceRow, '.maka-composer-workspace-row rule must exist');

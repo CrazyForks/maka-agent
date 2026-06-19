@@ -5212,7 +5212,7 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid oklch(from var(--foreground) l c h / 0.055);
@@ -5222,7 +5222,7 @@ button:active {
 .maka-composer-right-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
 }
 
 .maka-composer-left-controls {
@@ -5327,7 +5327,9 @@ button:active {
 }
 
 .maka-composer-send-button:disabled {
-  opacity: 0.38;
+  background: #000;
+  color: #fff;
+  opacity: 1;
   cursor: not-allowed;
 }
 
