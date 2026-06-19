@@ -6643,14 +6643,22 @@ export function PermissionDialog(props: {
             </p>
           )}
           {isDestructive && (
-            <p className="maka-permission-danger-note" role="note">
-              这类操作不可恢复，确认前请再读一遍上面的参数。
-            </p>
+            <Alert variant="error" className="maka-permission-danger-note">
+              <AlertDescription>
+                这类操作不可恢复，确认前请再读一遍上面的参数。
+              </AlertDescription>
+            </Alert>
           )}
           {health.status !== 'fresh' && (
-            <p className="maka-permission-stale-note" role="note" data-status={health.status}>
-              这个请求已经等待较久。允许前请重新确认工具名和参数；如果上下文已经变了，直接拒绝后重新发送。
-            </p>
+            <Alert
+              variant="warning"
+              className="maka-permission-stale-note"
+              data-status={health.status}
+            >
+              <AlertDescription>
+                这个请求已经等待较久。允许前请重新确认工具名和参数；如果上下文已经变了，直接拒绝后重新发送。
+              </AlertDescription>
+            </Alert>
           )}
         </div>
         <div className="maka-modal-footer permissionActions">
