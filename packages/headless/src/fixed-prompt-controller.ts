@@ -121,7 +121,12 @@ export interface PromptCandidateDecisionEvent {
   candidateCommitSha: string;
   previousLastKeptCommitSha: string;
   lastKeptCommitSha: string;
+  previousHeldInReferencePassEligibleRate: number | null;
+  heldInReferencePassEligibleRate: number | null;
   originalCommitSha: string;
+  heldInPassRateNoiseBand: number;
+  heldOutPassRateNoiseBand: number;
+  coverageNoiseBand: number;
   metrics: unknown;
 }
 

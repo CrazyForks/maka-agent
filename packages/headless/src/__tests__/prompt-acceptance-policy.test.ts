@@ -88,7 +88,9 @@ describe('prompt acceptance policy', () => {
       originalCommitSha: 'original-0',
       heldInTaskIds,
       heldOutTaskIds,
-      passRateNoiseBand: 0.05,
+      previousHeldInReferencePassEligibleRate: 0.25,
+      heldInPassRateNoiseBand: 0.05,
+      heldOutPassRateNoiseBand: 0.05,
       coverageNoiseBand: 0,
       originalEvents: [
         completed('out-a', true),
@@ -113,10 +115,65 @@ describe('prompt acceptance policy', () => {
     assert.equal(decision.decision, 'keep');
     assert.equal(decision.reason, 'held_in_improved');
     assert.equal(decision.lastKeptCommitSha, 'candidate-2');
+    assert.equal(decision.heldInReferencePassEligibleRate, 0.7);
     assert.equal(decision.metrics.lastKept.heldIn.passEligibleRate, 0.25);
     assert.equal(decision.metrics.candidate.heldIn.passEligibleRate, 0.75);
     assert.equal(decision.metrics.original.heldOut.passEligibleRate, 1);
     assert.equal(decision.metrics.candidate.heldOut.passEligibleRate, 1);
+  });
+
+  test('keeps against the monotonic held-in reference instead of a lucky last-kept run', () => {
+    const decision = decidePromptAcceptance({
+      ...baseDecisionInput(),
+      heldInTaskIds: ['in-a', 'in-b', 'in-c', 'in-d'],
+      previousHeldInReferencePassEligibleRate: 0.5,
+      heldInPassRateNoiseBand: 0.05,
+      heldOutPassRateNoiseBand: 0.05,
+      lastKeptEvents: [
+        completed('in-a', true),
+        completed('in-b', true),
+        completed('in-c', true),
+        completed('in-d', true),
+      ],
+      candidateEvents: [
+        completed('in-a', true),
+        completed('in-b', true),
+        completed('in-c', true),
+        completed('in-d', false),
+        completed('out-a', true),
+      ],
+    });
+
+    assert.equal(decision.decision, 'keep');
+    assert.equal(decision.reason, 'held_in_improved');
+    assert.equal(decision.heldInReferencePassEligibleRate, 0.7);
+  });
+
+  test('uses separate held-in and held-out pass-rate noise bands', () => {
+    const decision = decidePromptAcceptance({
+      ...baseDecisionInput(),
+      heldOutTaskIds: ['out-a', 'out-b', 'out-c', 'out-d'],
+      previousHeldInReferencePassEligibleRate: 0.25,
+      heldInPassRateNoiseBand: 0.05,
+      heldOutPassRateNoiseBand: 0.3,
+      originalEvents: [
+        completed('out-a', true),
+        completed('out-b', true),
+        completed('out-c', true),
+        completed('out-d', true),
+      ],
+      candidateEvents: [
+        completed('in-a', true),
+        completed('in-b', true),
+        completed('out-a', true),
+        completed('out-b', true),
+        completed('out-c', true),
+        completed('out-d', false),
+      ],
+    });
+
+    assert.equal(decision.decision, 'keep');
+    assert.equal(decision.reason, 'held_in_improved');
   });
 
   test('keeps held-in improvements when no held-out floor is configured', () => {
@@ -124,6 +181,9 @@ describe('prompt acceptance policy', () => {
       ...baseDecisionInput(),
       heldOutTaskIds: [],
       originalEvents: [],
+      previousHeldInReferencePassEligibleRate: 0.5,
+      heldInPassRateNoiseBand: 0.05,
+      heldOutPassRateNoiseBand: 0.05,
       lastKeptEvents: [
         completed('in-a', true),
         completed('in-b', false),
@@ -164,7 +224,8 @@ describe('prompt acceptance policy', () => {
   test('discards flat held-in changes inside the noise band', () => {
     const decision = decidePromptAcceptance({
       ...baseDecisionInput(),
-      passRateNoiseBand: 0.1,
+      previousHeldInReferencePassEligibleRate: 0.45,
+      heldInPassRateNoiseBand: 0.1,
       lastKeptEvents: [
         completed('in-a', true),
         completed('in-b', false),
@@ -184,7 +245,8 @@ describe('prompt acceptance policy', () => {
   test('discards held-in regressions', () => {
     const decision = decidePromptAcceptance({
       ...baseDecisionInput(),
-      passRateNoiseBand: 0.05,
+      previousHeldInReferencePassEligibleRate: 1,
+      heldInPassRateNoiseBand: 0.05,
       lastKeptEvents: [
         completed('in-a', true),
         completed('in-b', true),
@@ -260,6 +322,7 @@ describe('prompt acceptance policy', () => {
         roundId: 'round-3',
         candidateCommitSha: 'candidate-3',
         previousLastKeptCommitSha: keep.lastKeptCommitSha,
+        previousHeldInReferencePassEligibleRate: keep.heldInReferencePassEligibleRate,
         candidateEvents: [
           completed('in-a', true),
           completed('in-b', false),
@@ -281,6 +344,7 @@ describe('prompt acceptance policy', () => {
       ]);
       assert.deepEqual(promptAcceptanceStateFromWal(events, 'original-0'), {
         lastKeptCommitSha: 'candidate-2',
+        heldInReferencePassEligibleRate: 0.95,
         decisions: [
           { roundId: 'round-2', decision: 'keep', candidateCommitSha: 'candidate-2' },
           { roundId: 'round-3', decision: 'discard', candidateCommitSha: 'candidate-3' },
@@ -299,7 +363,9 @@ function baseDecisionInput() {
     originalCommitSha: 'original-0',
     heldInTaskIds: ['in-a', 'in-b'],
     heldOutTaskIds: ['out-a'],
-    passRateNoiseBand: 0.05,
+    previousHeldInReferencePassEligibleRate: 0.5,
+    heldInPassRateNoiseBand: 0.05,
+    heldOutPassRateNoiseBand: 0.05,
     coverageNoiseBand: 0,
     originalEvents: [completed('out-a', true)],
     lastKeptEvents: [completed('in-a', true), completed('in-b', false)],
