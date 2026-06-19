@@ -124,6 +124,7 @@ export interface PromptCandidateDecisionEvent {
   previousHeldInReferencePassEligibleRate: number | null;
   heldInReferencePassEligibleRate: number | null;
   originalCommitSha: string;
+  originalHeldOutPassEligibleRate: number | null;
   heldInPassRateNoiseBand: number;
   heldOutPassRateNoiseBand: number;
   metrics: unknown;

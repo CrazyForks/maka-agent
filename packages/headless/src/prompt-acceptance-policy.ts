@@ -88,6 +88,7 @@ export interface DecidePromptAcceptanceInput {
   heldInTaskIds: readonly string[];
   heldOutTaskIds: readonly string[];
   previousHeldInReferencePassEligibleRate: number | null;
+  originalHeldOutPassEligibleRate: number | null;
   heldInPassRateNoiseBand: number;
   heldOutPassRateNoiseBand: number;
   originalEvents: readonly FixedPromptTaskWalEvent[];
@@ -106,6 +107,7 @@ export interface PromptAcceptanceResult {
   previousHeldInReferencePassEligibleRate: number | null;
   heldInReferencePassEligibleRate: number | null;
   originalCommitSha: string;
+  originalHeldOutPassEligibleRate: number | null;
   heldInPassRateNoiseBand: number;
   heldOutPassRateNoiseBand: number;
   metrics: PromptAcceptanceMetrics;
@@ -177,6 +179,7 @@ export function decidePromptAcceptance(input: DecidePromptAcceptanceInput): Prom
   };
   const reason = acceptanceReason(metrics, {
     previousHeldInReferencePassEligibleRate: input.previousHeldInReferencePassEligibleRate,
+    originalHeldOutPassEligibleRate: input.originalHeldOutPassEligibleRate,
     heldInPassRateNoiseBand: input.heldInPassRateNoiseBand,
     heldOutPassRateNoiseBand: input.heldOutPassRateNoiseBand,
   });
@@ -198,6 +201,7 @@ export function decidePromptAcceptance(input: DecidePromptAcceptanceInput): Prom
     previousHeldInReferencePassEligibleRate: input.previousHeldInReferencePassEligibleRate,
     heldInReferencePassEligibleRate,
     originalCommitSha: input.originalCommitSha,
+    originalHeldOutPassEligibleRate: input.originalHeldOutPassEligibleRate,
     heldInPassRateNoiseBand: input.heldInPassRateNoiseBand,
     heldOutPassRateNoiseBand: input.heldOutPassRateNoiseBand,
     metrics,
@@ -321,6 +325,7 @@ function promptCandidateDecisionEvent(
     previousHeldInReferencePassEligibleRate: input.result.previousHeldInReferencePassEligibleRate,
     heldInReferencePassEligibleRate: input.result.heldInReferencePassEligibleRate,
     originalCommitSha: input.result.originalCommitSha,
+    originalHeldOutPassEligibleRate: input.result.originalHeldOutPassEligibleRate,
     heldInPassRateNoiseBand: input.result.heldInPassRateNoiseBand,
     heldOutPassRateNoiseBand: input.result.heldOutPassRateNoiseBand,
     metrics: input.result.metrics,
@@ -331,6 +336,7 @@ function acceptanceReason(
   metrics: PromptAcceptanceMetrics,
   input: {
     previousHeldInReferencePassEligibleRate: number | null;
+    originalHeldOutPassEligibleRate: number | null;
     heldInPassRateNoiseBand: number;
     heldOutPassRateNoiseBand: number;
   },
@@ -354,7 +360,10 @@ function acceptanceReason(
   if (coverageRegressed(heldOutCandidate.coverageRate, heldOutReference.coverageRate)) {
     return 'coverage_regressed';
   }
-  if (regressed(heldOutCandidate.passEligibleRate, heldOutReference.passEligibleRate, input.heldOutPassRateNoiseBand)) {
+  if (heldOutCandidate.taskCount > 0 && input.originalHeldOutPassEligibleRate === null) {
+    return 'coverage_regressed';
+  }
+  if (regressed(heldOutCandidate.passEligibleRate, input.originalHeldOutPassEligibleRate, input.heldOutPassRateNoiseBand)) {
     return 'held_out_regressed';
   }
   if (

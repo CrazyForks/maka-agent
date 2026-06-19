@@ -89,6 +89,7 @@ describe('prompt acceptance policy', () => {
       heldInTaskIds,
       heldOutTaskIds,
       previousHeldInReferencePassEligibleRate: 0.25,
+      originalHeldOutPassEligibleRate: 1,
       heldInPassRateNoiseBand: 0.05,
       heldOutPassRateNoiseBand: 0.05,
       originalEvents: [
@@ -126,6 +127,7 @@ describe('prompt acceptance policy', () => {
       ...baseDecisionInput(),
       heldInTaskIds: ['in-a', 'in-b', 'in-c', 'in-d'],
       previousHeldInReferencePassEligibleRate: 0.5,
+      originalHeldOutPassEligibleRate: 1,
       heldInPassRateNoiseBand: 0.05,
       heldOutPassRateNoiseBand: 0.05,
       lastKeptEvents: [
@@ -153,6 +155,7 @@ describe('prompt acceptance policy', () => {
       ...baseDecisionInput(),
       heldOutTaskIds: ['out-a', 'out-b', 'out-c', 'out-d'],
       previousHeldInReferencePassEligibleRate: 0.25,
+      originalHeldOutPassEligibleRate: 1,
       heldInPassRateNoiseBand: 0.05,
       heldOutPassRateNoiseBand: 0.3,
       originalEvents: [
@@ -181,6 +184,7 @@ describe('prompt acceptance policy', () => {
       heldOutTaskIds: [],
       originalEvents: [],
       previousHeldInReferencePassEligibleRate: 0.5,
+      originalHeldOutPassEligibleRate: null,
       heldInPassRateNoiseBand: 0.05,
       heldOutPassRateNoiseBand: 0.05,
       lastKeptEvents: [
@@ -345,6 +349,28 @@ describe('prompt acceptance policy', () => {
     assert.equal(decision.reason, 'held_out_regressed');
   });
 
+  test('uses the calibrated held-out original mean instead of one original run', () => {
+    const decision = decidePromptAcceptance({
+      ...baseDecisionInput(),
+      heldOutTaskIds: ['out-a', 'out-b'],
+      originalHeldOutPassEligibleRate: 0.75,
+      heldOutPassRateNoiseBand: 0.1,
+      originalEvents: [
+        completed('out-a', true),
+        completed('out-b', false),
+      ],
+      candidateEvents: [
+        completed('in-a', true),
+        completed('in-b', true),
+        completed('out-a', true),
+        completed('out-b', false),
+      ],
+    });
+
+    assert.equal(decision.decision, 'discard');
+    assert.equal(decision.reason, 'held_out_regressed');
+  });
+
   test('records KEEP and DISCARD decisions in the WAL and resumes last kept commit', async () => {
     await withDir(async (dir) => {
       const resultsJsonlPath = join(dir, 'results.jsonl');
@@ -403,6 +429,7 @@ function baseDecisionInput() {
     heldInTaskIds: ['in-a', 'in-b'],
     heldOutTaskIds: ['out-a'],
     previousHeldInReferencePassEligibleRate: 0.5,
+    originalHeldOutPassEligibleRate: 1,
     heldInPassRateNoiseBand: 0.05,
     heldOutPassRateNoiseBand: 0.05,
     originalEvents: [completed('out-a', true)],
