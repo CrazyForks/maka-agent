@@ -53,7 +53,17 @@ import {
   generalizedErrorMessageChinese,
   redactSecrets,
 } from '@maka/core';
-import { Button, Toolbar, ToolbarGroup, ToolbarSeparator, useToast } from '@maka/ui';
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+  Button,
+  Toolbar,
+  ToolbarGroup,
+  ToolbarSeparator,
+  useToast,
+} from '@maka/ui';
 import { ArtifactPreview } from './artifact-preview';
 import { nextArtifactListAction } from './artifact-list-keyboard';
 import { openPathFailureCopy } from './open-path';
@@ -379,26 +389,26 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
       {!collapsed && (
         <>
           {activeListError && (
-            <div className="maka-artifact-list-error" role="alert">
+            <Alert variant="error" className="maka-artifact-list-error">
               <AlertTriangle size={14} strokeWidth={1.75} aria-hidden="true" />
-              <div>
-                <strong>生成文件列表载入失败</strong>
-                <p>{activeListError}</p>
-              </div>
-              <Button
-                className="maka-artifact-error-retry"
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={() => void retryArtifactListRefresh()}
-                disabled={pendingArtifactListRetry}
-                aria-busy={pendingArtifactListRetry ? 'true' : undefined}
-                data-pending={pendingArtifactListRetry ? 'true' : undefined}
-              >
-                <RefreshCcw size={13} strokeWidth={1.75} aria-hidden="true" />
-                <span>{pendingArtifactListRetry ? '重试中…' : '重试'}</span>
-              </Button>
-            </div>
+              <AlertTitle>生成文件列表载入失败</AlertTitle>
+              <AlertDescription>{activeListError}</AlertDescription>
+              <AlertAction>
+                <Button
+                  className="maka-artifact-error-retry"
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  onClick={() => void retryArtifactListRefresh()}
+                  disabled={pendingArtifactListRetry}
+                  aria-busy={pendingArtifactListRetry ? 'true' : undefined}
+                  data-pending={pendingArtifactListRetry ? 'true' : undefined}
+                >
+                  <RefreshCcw size={13} strokeWidth={1.75} aria-hidden="true" />
+                  <span>{pendingArtifactListRetry ? '重试中…' : '重试'}</span>
+                </Button>
+              </AlertAction>
+            </Alert>
           )}
           <ul
             ref={listRef}
