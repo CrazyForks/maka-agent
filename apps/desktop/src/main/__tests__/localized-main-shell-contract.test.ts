@@ -613,11 +613,13 @@ describe('localized main shell contract', () => {
     assert.match(components, /className="maka-composer-workspace-picker"[\s\S]*<FolderOpen size=\{13\}[\s\S]*<span>选择工作目录<\/span>[\s\S]*<ChevronDown size=\{12\}/);
     assert.ok(workspaceRow, '.maka-composer-workspace-row rule must exist');
     assert.match(workspaceRow, /width:\s*min\(750px,\s*80vw\)/);
+    assert.match(workspaceRow, /margin:\s*8px auto 0/);
     assert.doesNotMatch(workspaceRow, /padding-inline/);
     assert.ok(workspacePicker, '.maka-composer-workspace-picker rule must exist');
     assert.match(workspacePicker, /font-size:\s*12px/);
     assert.match(workspacePicker, /background:\s*transparent/);
-    assert.match(workspacePicker, /padding:\s*8px 16px/);
+    assert.match(workspacePicker, /padding:\s*6px 8px/);
+    assert.match(workspacePicker, /line-height:\s*1\.25/);
     assert.match(workspacePicker, /border:\s*0/);
     assert.ok(workspacePickerHover, '.maka-composer-workspace-picker:hover rule must exist');
     assert.match(workspacePickerHover, /background:\s*var\(--foreground-3\)/);
