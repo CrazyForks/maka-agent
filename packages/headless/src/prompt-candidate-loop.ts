@@ -32,6 +32,16 @@ export interface ExtractTrajectoryDigestInput {
   verifierSummary: string;
 }
 
+export interface RewardHackScanInput {
+  runtimeEventsPath: string;
+  verifierPatterns: readonly string[];
+}
+
+export type RewardHackScanResult =
+  | { decision: 'clean' }
+  | { decision: 'quarantine'; reason: 'runtime_events_unreadable' }
+  | { decision: 'quarantine'; reason: 'verifier_pattern'; matchedPatterns: readonly string[] };
+
 export interface MetaAgentPromptInput {
   runId: string;
   roundId: string;
@@ -199,6 +209,35 @@ export async function extractTrajectoryDigest(
     summary: input.verifierSummary,
     ...(recentToolCalls.length > 0 ? { recentToolCalls } : {}),
   };
+}
+
+export async function scanRuntimeEventsForRewardHack(
+  input: RewardHackScanInput,
+): Promise<RewardHackScanResult> {
+  let events: unknown[];
+  try {
+    events = await readRuntimeEventsJsonl(input.runtimeEventsPath);
+  } catch {
+    return { decision: 'quarantine', reason: 'runtime_events_unreadable' };
+  }
+
+  const patterns = input.verifierPatterns.filter((pattern) => pattern.length > 0);
+  const matchedPatterns = new Set<string>();
+  for (const event of events) {
+    for (const value of functionCallArgStrings(event)) {
+      for (const pattern of patterns) {
+        if (value.includes(pattern)) matchedPatterns.add(pattern);
+      }
+    }
+  }
+  if (matchedPatterns.size > 0) {
+    return {
+      decision: 'quarantine',
+      reason: 'verifier_pattern',
+      matchedPatterns: [...matchedPatterns].sort((a, b) => a.localeCompare(b)),
+    };
+  }
+  return { decision: 'clean' };
 }
 
 export function createScriptedMetaAgent(input: CreateScriptedMetaAgentInput): MetaAgent {
@@ -429,6 +468,20 @@ function functionCallDigest(event: unknown): TrajectoryToolCallDigest | undefine
     name: content.name,
     argsPreview: argsPreview(content.args),
   };
+}
+
+function functionCallArgStrings(event: unknown): readonly string[] {
+  if (!isRecord(event) || !isRecord(event.content)) return [];
+  const content = event.content;
+  if (content.kind !== 'function_call') return [];
+  return stringValues(content.args);
+}
+
+function stringValues(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) return value.flatMap((item) => stringValues(item));
+  if (isRecord(value)) return Object.values(value).flatMap((item) => stringValues(item));
+  return [];
 }
 
 function argsPreview(args: unknown): string {

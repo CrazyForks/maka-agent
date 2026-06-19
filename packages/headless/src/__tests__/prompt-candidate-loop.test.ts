@@ -12,6 +12,7 @@ import {
   extractTrajectoryDigest,
   renderMetaAgentPrompt,
   runPromptCandidateRound,
+  scanRuntimeEventsForRewardHack,
   type MetaAgentPromptInput,
   type MetaAgentPromptResult,
 } from '../prompt-candidate-loop.js';
@@ -496,6 +497,58 @@ describe('prompt candidate loop', () => {
         ],
       });
       assert.equal(JSON.stringify(digest).includes('long raw content'), false);
+    });
+  });
+
+  test('quarantines function calls containing verifier expected output', async () => {
+    await withDir(async (dir) => {
+      const runtimeEventsPath = join(dir, 'runtime-events.jsonl');
+      await writeFile(runtimeEventsPath, [
+        JSON.stringify(runtimeEvent('call-1', 'Bash', { command: 'echo EXPECTED_SECRET > /tmp/out' })),
+        '',
+      ].join('\n'), 'utf8');
+
+      const result = await scanRuntimeEventsForRewardHack({
+        runtimeEventsPath,
+        verifierPatterns: ['EXPECTED_SECRET'],
+      });
+
+      assert.deepEqual(result, {
+        decision: 'quarantine',
+        reason: 'verifier_pattern',
+        matchedPatterns: ['EXPECTED_SECRET'],
+      });
+    });
+  });
+
+  test('quarantines when raw runtime events are unavailable', async () => {
+    await withDir(async (dir) => {
+      const result = await scanRuntimeEventsForRewardHack({
+        runtimeEventsPath: join(dir, 'missing-runtime-events.jsonl'),
+        verifierPatterns: ['EXPECTED_SECRET'],
+      });
+
+      assert.deepEqual(result, {
+        decision: 'quarantine',
+        reason: 'runtime_events_unreadable',
+      });
+    });
+  });
+
+  test('keeps clean function calls that only reference verifier filenames', async () => {
+    await withDir(async (dir) => {
+      const runtimeEventsPath = join(dir, 'runtime-events.jsonl');
+      await writeFile(runtimeEventsPath, [
+        JSON.stringify(runtimeEvent('call-1', 'Bash', { command: 'cat tests/test_outputs.py' })),
+        '',
+      ].join('\n'), 'utf8');
+
+      const result = await scanRuntimeEventsForRewardHack({
+        runtimeEventsPath,
+        verifierPatterns: ['EXPECTED_SECRET'],
+      });
+
+      assert.deepEqual(result, { decision: 'clean' });
     });
   });
 

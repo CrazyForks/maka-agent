@@ -61,6 +61,8 @@ export type {
   MetaAgentCompletionInput,
   PromptCandidateGit,
   PromptCandidateRoundResult,
+  RewardHackScanInput,
+  RewardHackScanResult,
   RunPromptCandidateRoundInput,
   TrajectoryDigest,
   TrajectoryToolCallDigest,
@@ -73,6 +75,7 @@ export {
   parseMetaAgentResult,
   renderMetaAgentPrompt,
   runPromptCandidateRound,
+  scanRuntimeEventsForRewardHack,
 } from './prompt-candidate-loop.js';
 export type {
   AppendPromptAcceptanceDecisionInput,
