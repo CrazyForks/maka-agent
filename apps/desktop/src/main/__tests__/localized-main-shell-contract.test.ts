@@ -415,6 +415,61 @@ describe('localized main shell contract', () => {
     assert.match(resizeBlock, /window\.removeEventListener\('blur', cleanupResize\)/, 'resize cleanup must remove the blur listener');
   });
 
+  it('keeps the QoderWork-like app shell as one canvas with a collapsible icon sidebar', async () => {
+    const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
+    const main = await readFile(join(process.cwd(), 'src', 'renderer', 'main.tsx'), 'utf8');
+    const styles = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
+
+    assert.match(components, /sidebarCollapsed\?: boolean;/);
+    assert.match(components, /onToggleSidebar\?\(\): void;/);
+    assert.match(components, /data-collapsed=\{props\.sidebarCollapsed \? 'true' : undefined\}/);
+    assert.match(components, /className="maka-sidebar-toggle"[\s\S]*aria-label=\{props\.sidebarCollapsed \? '展开侧边栏' : '收起侧边栏'\}[\s\S]*aria-expanded=\{!props\.sidebarCollapsed\}/);
+    assert.match(components, /aria-label=\{MODULE_NAV_LABEL\.sessions\}/);
+    assert.match(components, /aria-label=\{MODULE_NAV_LABEL\.search\}/);
+    assert.match(components, /aria-label=\{MODULE_NAV_LABEL\.skills\}/);
+
+    assert.match(main, /const \[sessionListCollapsed, setSessionListCollapsed\] = useState\(\(\) => readSessionListCollapsed\(\)\);/);
+    assert.match(main, /localStorage\.setItem\('maka-chat-list-collapsed-v1', sessionListCollapsed \? 'true' : 'false'\)/);
+    assert.match(main, /data-sidebar-state=\{sessionListCollapsed \? 'collapsed' : 'expanded'\}/);
+    assert.match(main, /'--maka-session-list-width': `\$\{sessionListCollapsed \? 60 : sessionListWidth\}px`/);
+    assert.match(main, /'--maka-resize-handle-width': sessionListCollapsed \? '0px' : '8px'/);
+    assert.match(main, /if \(sessionListCollapsed\) return;[\s\S]*function onResizeHandleKeyDown/);
+    assert.match(main, /aria-hidden=\{sessionListCollapsed \? 'true' : undefined\}/);
+    assert.match(main, /tabIndex=\{sessionListCollapsed \? -1 : 0\}/);
+    assert.match(main, /function readSessionListCollapsed\(\): boolean \{[\s\S]*return true;\n\}/);
+
+    const floatingPanel = extractCssRule(styles, '.maka-floating-panel');
+    assert.ok(floatingPanel, '.maka-floating-panel rule must exist');
+    assert.match(floatingPanel, /border:\s*0/);
+    assert.match(floatingPanel, /border-radius:\s*0/);
+    assert.match(floatingPanel, /box-shadow:\s*none/);
+    const listPanel = extractCssRule(styles, '.maka-panel-list.maka-floating-panel');
+    assert.ok(listPanel, '.maka-panel-list.maka-floating-panel rule must exist');
+    assert.match(listPanel, /border-right:\s*1px solid var\(--border\)/);
+    assert.match(listPanel, /background:\s*oklch\(from var\(--background\) calc\(l - 0\.015\) c h\)/);
+    const collapsedNav = extractCssRule(styles, '.maka-session-panel[data-collapsed="true"] .maka-nav-primary,\n.maka-session-panel[data-collapsed="true"] .maka-project-badge,\n.maka-session-panel[data-collapsed="true"] .maka-nav-row');
+    assert.ok(collapsedNav, 'collapsed nav sizing rule must exist');
+    assert.match(collapsedNav, /width:\s*34px/);
+    assert.match(collapsedNav, /grid-template-columns:\s*1fr/);
+    assert.match(styles, /\.maka-session-panel\[data-collapsed="true"\] \.maka-session-list-title,\n\.maka-session-panel\[data-collapsed="true"\] \.maka-list-stack,\n\.maka-session-panel\[data-collapsed="true"\] \.maka-sidebar-module-hint,\n\.maka-session-panel\[data-collapsed="true"\] \.maka-empty-state \{[\s\S]*?display:\s*none/);
+    assert.match(styles, /\.maka-session-panel\[data-collapsed="true"\] \.maka-nav-row\[data-active="true"\] \.maka-nav-icon \{[\s\S]*?color:\s*white/);
+  });
+
+  it('keeps the chat composer as the only main card with a narrow QoderWork-like frame', async () => {
+    const styles = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
+    const composerCard = extractCssRule(styles, '.composer .maka-composer-inner');
+    const composerFocus = extractCssRule(styles, '.composer .maka-composer-inner:focus-within');
+
+    assert.ok(composerCard, '.composer .maka-composer-inner rule must exist');
+    assert.match(composerCard, /max-width:\s*640px/);
+    assert.match(composerCard, /border-radius:\s*14px/);
+    assert.match(composerCard, /padding:\s*16px/);
+    assert.match(composerCard, /0 2px 8px oklch\(from var\(--foreground\) l c h \/ 0\.045\)/);
+    assert.doesNotMatch(composerCard, /var\(--shadow-medium\)/);
+    assert.ok(composerFocus, '.composer .maka-composer-inner:focus-within rule must exist');
+    assert.doesNotMatch(composerFocus, /var\(--shadow-medium\)/);
+  });
+
   it('keeps English skill metadata out of the visible skills list copy', async () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const skillPanel = components.match(/function SkillLibraryPanel[\s\S]*?function formatSkillLibraryDescription/)?.[0] ?? '';
@@ -475,3 +530,8 @@ describe('localized main shell contract', () => {
     assert.doesNotMatch(`${toolRuntime}\n${piAgent}`, /User denied permission/);
   });
 });
+
+function extractCssRule(css: string, selector: string): string | undefined {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\n/g, '\\s*\\n');
+  return css.match(new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\}`))?.[1];
+}

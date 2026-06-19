@@ -155,17 +155,14 @@ button:active {
 
 .maka-shell-2col {
   display: grid;
-  /* PR-UI-LAYOUT-1: the middle column is the resize handle. We
-   * keep it at 8px so the keyboard separator still works, but it
-   * doubles as the visible gap between the two floating panels —
-   * the reference design runs ~6-8px between cards, which Maka now matches. */
   grid-template-columns:
     var(--maka-session-list-width, var(--w-sessionlist))
-    8px
+    var(--maka-resize-handle-width, 8px)
     minmax(0, 1fr);
   align-items: stretch;
   gap: 0;
   overflow: hidden;
+  background: var(--background);
 }
 
 .maka-panel {
@@ -175,29 +172,38 @@ button:active {
 }
 
 .maka-floating-panel {
-  /* PR-UI-LAYOUT-1: softened panel chrome to match the reference design screenshot 1.
-   * Was: 14px radius + `--border-strong` + 3-layer shadow that read
-   * as "lifted card on a different surface".
-   * Now: 12px radius + thin `--border` + much lighter shadow that
-   * reads as "rounded subsection of the same warm sheet". This is
-   * what makes the sidebar feel integrated with the main area
-   * instead of a separate panel hovering over a darker shell. */
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border: 0;
+  border-radius: 0;
   background: var(--background);
-  box-shadow:
-    rgba(var(--foreground-rgb), 0.03) 0 0 0 1px,
-    rgba(0, 0, 0, 0.03) 0 1px 2px 0,
-    rgba(0, 0, 0, 0.02) 0 3px 6px -2px;
+  box-shadow: none;
+}
+
+.maka-panel-list.maka-floating-panel {
+  border-right: 1px solid var(--border);
+  background: oklch(from var(--background) calc(l - 0.015) c h);
+}
+
+.maka-panel-detail.maka-floating-panel {
+  background: var(--background);
 }
 
 .maka-resize-handle {
   position: relative;
-  width: 8px;
+  width: var(--maka-resize-handle-width, 8px);
   outline: none;
   cursor: col-resize;
   user-select: none;
   touch-action: none;
+  background: var(--background);
+}
+
+.maka-shell-2col[data-sidebar-state="collapsed"] .maka-resize-handle {
+  pointer-events: none;
+  cursor: default;
+}
+
+.maka-shell-2col[data-sidebar-state="collapsed"] .maka-resize-handle::after {
+  display: none;
 }
 
 .maka-resize-handle::after {
@@ -257,7 +263,11 @@ button:active {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden;
-  background: transparent;
+  background: oklch(from var(--background) calc(l - 0.015) c h);
+}
+
+.maka-session-panel[data-collapsed="true"] {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
 /* Search modal: input + local thread-search results, backed by
@@ -491,10 +501,67 @@ button:active {
 
 .maka-session-panel-header {
   display: grid;
-  gap: 8px;
-  padding: 8px 12px 10px;
+  gap: 6px;
+  padding: 6px 10px 8px;
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
+}
+
+.maka-sidebar-drag-strip {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  -webkit-app-region: drag;
+}
+
+.maka-sidebar-toggle {
+  -webkit-app-region: no-drag;
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground-55);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.maka-sidebar-toggle:hover {
+  background: var(--foreground-5);
+  color: var(--foreground);
+}
+
+.maka-sidebar-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-session-panel-header {
+  padding: 6px 8px 8px;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-sidebar-drag-strip {
+  justify-content: center;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-sidebar-modules,
+.maka-session-panel[data-collapsed="true"] .maka-session-panel-footer {
+  justify-items: center;
+  padding-inline: 8px;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-session-list {
+  border-top: 0;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-session-list-title,
+.maka-session-panel[data-collapsed="true"] .maka-list-stack,
+.maka-session-panel[data-collapsed="true"] .maka-sidebar-module-hint,
+.maka-session-panel[data-collapsed="true"] .maka-empty-state {
+  display: none;
 }
 
 /* PR-SIDEBAR-IA-0 Phase 2 fixup v3 (xuan `dce5a6fb` #3): the
@@ -619,17 +686,11 @@ button:active {
   gap: 8px;
   margin: 0;
   padding: 0 8px;
-  border: 1px solid var(--border);
-  /* PR-UI-LAYOUT-16: "New chat" sidebar primary button radius
-   * 8 → 10 to match the card / chip / search family. Shadow
-   * softens from `--shadow-minimal` (3-layer) to a single 1px
-   * ring — on the warm canvas the heavier shadow felt like
-   * the button was hovering above the sidebar panel rather
-   * than sitting on it. Hover transitions added. */
-  border-radius: 10px;
-  background: var(--background);
-  box-shadow: 0 0 0 1px oklch(from var(--foreground) l c h / 0.03);
-  color: var(--foreground);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -638,8 +699,8 @@ button:active {
 }
 
 .maka-nav-primary:hover {
-  background: var(--foreground-2);
-  border-color: oklch(from var(--foreground) l c h / 0.08);
+  background: var(--foreground-3);
+  border-color: transparent;
 }
 
 .maka-nav-primary:focus-visible {
@@ -651,8 +712,45 @@ button:active {
 .maka-nav-primary-icon {
   width: 15px;
   height: 15px;
-  color: var(--foreground);
+  color: currentColor;
   flex: 0 0 auto;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-nav-primary,
+.maka-session-panel[data-collapsed="true"] .maka-project-badge,
+.maka-session-panel[data-collapsed="true"] .maka-nav-row {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  gap: 0;
+  margin-inline: auto;
+  padding: 0;
+  border-radius: 9px;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-nav-primary span,
+.maka-session-panel[data-collapsed="true"] .maka-project-badge span,
+.maka-session-panel[data-collapsed="true"] .maka-nav-row span:nth-child(2),
+.maka-session-panel[data-collapsed="true"] .maka-nav-row small {
+  display: none;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-nav-primary {
+  background: oklch(from var(--accent) l c h / 0.10);
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-nav-row[data-active="true"] {
+  background: var(--accent);
+  box-shadow: none;
+  color: white;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-nav-row[data-active="true"] .maka-nav-icon {
+  color: white;
 }
 
 .maka-project-badge {
@@ -4785,35 +4883,27 @@ button:active {
 
 .composer {
   flex: 0 0 auto;
-  padding-top: 10px;
-  padding-bottom: 14px;
+  padding: 12px 24px 16px;
   background:
     linear-gradient(180deg, transparent, var(--background) 32%),
     var(--background);
 }
 
 .composer .maka-composer-inner {
-  padding: 10px 12px;
-  /* PR-CHAT-MAIN-REDESIGN-0: add a hair-line inset highlight on the
-     top edge so the composer card reads as a lifted surface, not a
-     flat box. The colored shadow underneath inherits via theme
-     tokens; the inset white-on-light / black-on-dark mix is built
-     from `color-mix` so it stays subtle in either density and any
-     palette. */
+  max-width: 640px;
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--background-elevated);
   box-shadow:
-    inset 0 1px 0 color-mix(in oklch, var(--foreground) 5%, transparent),
-    var(--shadow-medium);
+    0 0 0 1px oklch(from var(--foreground) l c h / 0.035),
+    0 2px 8px oklch(from var(--foreground) l c h / 0.045);
 }
 
 .composer .maka-composer-inner:focus-within {
-  /* When the textarea is focused, the existing :focus-within ring
-     comes from the wrapper. Compound with a tighter shadow so the
-     composer literally lifts a hair under focus — small
-     interaction polish, no functional change. */
   box-shadow:
-    inset 0 1px 0 color-mix(in oklch, var(--foreground) 8%, transparent),
-    var(--shadow-medium),
-    0 0 0 3px oklch(from var(--accent) l c h / 0.10);
+    0 0 0 1px oklch(from var(--accent) l c h / 0.20),
+    0 0 0 3px oklch(from var(--accent) l c h / 0.10),
+    0 2px 8px oklch(from var(--foreground) l c h / 0.045);
 }
 
 .composer textarea {

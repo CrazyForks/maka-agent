@@ -867,6 +867,7 @@ function AppShell() {
   const showOnboardingHero =
     sessions.length === 0 && onboardingState !== undefined && onboardingState.kind !== 'ready_with_history';
   const [sessionListWidth, setSessionListWidth] = useState(() => readSessionListWidth());
+  const [sessionListCollapsed, setSessionListCollapsed] = useState(() => readSessionListCollapsed());
 
   function setActiveId(next: string | undefined): void {
     activeIdRef.current = next;
@@ -1121,6 +1122,14 @@ function AppShell() {
       /* localStorage unavailable; width resets to the default next launch */
     }
   }, [sessionListWidth]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('maka-chat-list-collapsed-v1', sessionListCollapsed ? 'true' : 'false');
+    } catch {
+      /* localStorage unavailable; sidebar resets to the collapsed QoderWork-like rail */
+    }
+  }, [sessionListCollapsed]);
 
   // Persist sidebar nav selection so the app remembers what bucket the user
   // had open (Chats / Pinned / Archived / Skills) across restarts. Strict
@@ -2565,6 +2574,7 @@ function AppShell() {
   }
 
   function startColumnResize(event: PointerEvent<HTMLDivElement>) {
+    if (sessionListCollapsed) return;
     event.preventDefault();
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -2598,6 +2608,7 @@ function AppShell() {
   }
 
   function onResizeHandleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (sessionListCollapsed) return;
     // Keyboard-accessible separator (WAI-ARIA orientation=vertical convention):
     //   ArrowLeft  → -10 px       ArrowRight → +10 px
     //   Shift+Arrow → ±50 px       Home → min       End → max
@@ -2641,8 +2652,10 @@ function AppShell() {
         aria-hidden={hasModalOpen ? 'true' : undefined}
         inert={hasModalOpen ? true : undefined}
         data-modal-background-hidden={hasModalOpen ? 'true' : undefined}
+        data-sidebar-state={sessionListCollapsed ? 'collapsed' : 'expanded'}
         style={{
-          '--maka-session-list-width': `${sessionListWidth}px`,
+          '--maka-session-list-width': `${sessionListCollapsed ? 60 : sessionListWidth}px`,
+          '--maka-resize-handle-width': sessionListCollapsed ? '0px' : '8px',
         } as CSSProperties}
       >
         <div className="maka-panel maka-panel-list maka-floating-panel">
@@ -2709,17 +2722,20 @@ function AppShell() {
               onRename: (sessionId, name) => renameSession(sessionId, name),
               onDelete: (sessionId) => deleteSession(sessionId),
             }}
+            sidebarCollapsed={sessionListCollapsed}
+            onToggleSidebar={() => setSessionListCollapsed((current) => !current)}
           />
         </div>
         <div
           className="maka-resize-handle"
           role="separator"
-          aria-label="调整对话列表宽度"
+          aria-label={sessionListCollapsed ? '侧边栏已收起' : '调整对话列表宽度'}
           aria-orientation="vertical"
           aria-valuemin={240}
           aria-valuemax={420}
           aria-valuenow={sessionListWidth}
-          tabIndex={0}
+          aria-hidden={sessionListCollapsed ? 'true' : undefined}
+          tabIndex={sessionListCollapsed ? -1 : 0}
           onPointerDown={startColumnResize}
           onKeyDown={onResizeHandleKeyDown}
         />
@@ -3344,6 +3360,17 @@ function readSessionListWidth(): number {
     /* localStorage unavailable */
   }
   return 320;
+}
+
+function readSessionListCollapsed(): boolean {
+  try {
+    const stored = localStorage.getItem('maka-chat-list-collapsed-v1');
+    if (stored === 'false') return false;
+    if (stored === 'true') return true;
+  } catch {
+    /* localStorage unavailable */
+  }
+  return true;
 }
 
 function isNoRealConnectionError(error: unknown): boolean {

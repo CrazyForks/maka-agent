@@ -27,6 +27,8 @@ import {
   MessageSquare,
   MoreHorizontal,
   Paperclip,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pencil,
   Pin,
   PinOff,
@@ -405,6 +407,8 @@ export function SessionListPanel(props: {
    */
   dailyReviewBridge?: DailyReviewBridge;
   rowActions?: SessionRowActions;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?(): void;
 }) {
   // PR-SIDEBAR-IA-0 Phase 2 fixup (WAWQAQ `49309559` + kenji
   // `9f683ea8` + xuan `71687cc7`): the title is the Chinese module
@@ -512,10 +516,29 @@ export function SessionListPanel(props: {
   }
 
   return (
-    <aside className="maka-session-panel" aria-label="对话列表">
+    <aside
+      className="maka-session-panel"
+      aria-label="对话列表"
+      data-collapsed={props.sidebarCollapsed ? 'true' : undefined}
+    >
       <header className="maka-session-panel-header">
-        <div className="maka-window-drag-strip" aria-hidden="true" />
-        <button className="maka-nav-primary" type="button" onClick={props.onNew}>
+        <div className="maka-sidebar-drag-strip">
+          <button
+            className="maka-sidebar-toggle"
+            type="button"
+            onClick={props.onToggleSidebar}
+            aria-label={props.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            aria-expanded={!props.sidebarCollapsed}
+            title={props.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+          >
+            {props.sidebarCollapsed ? (
+              <PanelLeftOpen size={16} strokeWidth={1.65} aria-hidden="true" />
+            ) : (
+              <PanelLeftClose size={16} strokeWidth={1.65} aria-hidden="true" />
+            )}
+          </button>
+        </div>
+        <button className="maka-nav-primary" type="button" onClick={props.onNew} aria-label="新建对话">
           <SquarePen className="maka-nav-primary-icon" strokeWidth={1.5} />
           <span>新建对话</span>
         </button>
@@ -547,6 +570,7 @@ export function SessionListPanel(props: {
           className="maka-nav-row"
           data-active={isModuleActive('sessions')}
           aria-current={isModuleActive('sessions') ? 'page' : undefined}
+          aria-label={MODULE_NAV_LABEL.sessions}
           type="button"
           onClick={() => selectModule('sessions')}
         >
@@ -559,6 +583,7 @@ export function SessionListPanel(props: {
           data-maka-search-trigger="true"
           onClick={() => selectModule('search')}
           aria-haspopup="dialog"
+          aria-label={MODULE_NAV_LABEL.search}
         >
           <Search className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
           <span>{MODULE_NAV_LABEL.search}</span>
@@ -569,7 +594,7 @@ export function SessionListPanel(props: {
           aria-current={isModuleActive('automations') ? 'page' : undefined}
           type="button"
           onClick={() => selectModule('automations')}
-          aria-label={activePlanReminderCount > 0 ? `计划，${activePlanReminderCount} 个未完成提醒` : undefined}
+          aria-label={activePlanReminderCount > 0 ? `计划，${activePlanReminderCount} 个未完成提醒` : MODULE_NAV_LABEL.automations}
         >
           <Clock className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
           <span>{MODULE_NAV_LABEL.automations}</span>
@@ -581,6 +606,7 @@ export function SessionListPanel(props: {
           className="maka-nav-row"
           data-active={isModuleActive('skills')}
           aria-current={isModuleActive('skills') ? 'page' : undefined}
+          aria-label={MODULE_NAV_LABEL.skills}
           type="button"
           onClick={() => selectModule('skills')}
         >
@@ -591,6 +617,7 @@ export function SessionListPanel(props: {
           className="maka-nav-row"
           data-active={isModuleActive('daily-review')}
           aria-current={isModuleActive('daily-review') ? 'page' : undefined}
+          aria-label={MODULE_NAV_LABEL['daily-review']}
           type="button"
           onClick={() => selectModule('daily-review')}
         >
@@ -693,6 +720,7 @@ export function SessionListPanel(props: {
           className="maka-nav-row"
           type="button"
           onClick={props.onOpenSettings}
+          aria-label="设置"
         >
           <Settings className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
           <span>设置</span>
