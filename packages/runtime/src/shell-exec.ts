@@ -203,9 +203,7 @@ export function runShellWithBoundedTail(
       const pid = child.pid;
       if (!pid) return;
       if (process.platform === 'win32') {
-        try {
-          spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' });
-        } catch { /* nothing more we can do */ }
+        killWindowsTree(pid);
         return;
       }
       try {
@@ -238,4 +236,24 @@ export function runShellWithBoundedTail(
       if (options.abortSignal) options.abortSignal.removeEventListener('abort', abort);
     }
   });
+}
+
+/**
+ * Force-kill a process tree on Windows, which has no process groups or SIGTERM
+ * semantics (POSIX uses `process.kill(-pid)` on the detached group instead).
+ * `taskkill /T` walks the tree by PID, `/F` forces it. Best-effort and untested
+ * on non-Windows CI — exported so the error-handling path can be exercised on
+ * any platform.
+ *
+ * The spawned taskkill MUST have an 'error' listener: a child process with no
+ * 'error' handler turns an async spawn failure (e.g. taskkill not on PATH) into
+ * an unhandled 'error' event that can crash the host process.
+ */
+export function killWindowsTree(pid: number): void {
+  try {
+    const killer = spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' });
+    killer.on('error', () => { /* taskkill unavailable / failed — nothing more we can do */ });
+  } catch {
+    /* synchronous spawn failure — nothing more we can do */
+  }
 }

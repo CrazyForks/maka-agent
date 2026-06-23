@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runShellWithBoundedTail } from '../shell-exec.js';
+import { runShellWithBoundedTail, killWindowsTree } from '../shell-exec.js';
 
 const base = (over: Record<string, unknown> = {}) => ({ cwd: process.cwd(), timeoutMs: 30_000, ...over });
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -136,5 +136,38 @@ describe('runShellWithBoundedTail', () => {
     // The suppressed LIVE feed does not lose the result: the retained tail still
     // carries the real output (the last bytes the command produced).
     assert.ok(r.stdout.includes('TAIL'), 'retained tail keeps the command output');
+  });
+
+  test('killWindowsTree swallows a taskkill spawn failure instead of crashing', async () => {
+    // On non-Windows hosts `taskkill` is absent, so spawn emits an async 'error'
+    // (ENOENT). Without the error listener that would be an unhandled 'error'
+    // event and crash the process — so this exercises the exact safety path the
+    // Windows branch relies on. Reaching the assertion means it was swallowed.
+    killWindowsTree(999_999); // bogus pid; taskkill is missing here regardless
+    await delay(150); // let the async spawn-failure 'error' fire
+    assert.ok(true, 'no unhandled error propagated from the taskkill spawn failure');
+  });
+
+  test('Windows: timeout kills the process tree via taskkill', { skip: process.platform !== 'win32' }, async () => {
+    // Windows analogue of the POSIX process-tree test above; runs only on a
+    // Windows runner. A grandchild that holds stdout open would hang the runner
+    // unless taskkill /T kills the whole tree.
+    const dir = await fs.mkdtemp(join(tmpdir(), 'shell-exec-win-'));
+    const pidFile = join(dir, 'child.pid');
+    const cmd =
+      'node -e "require(\'fs\').writeFileSync(process.env.MAKA_PIDOUT, String(process.pid)); setInterval(() => {}, 1000)"';
+    try {
+      const r = await runShellWithBoundedTail(
+        cmd,
+        base({ timeoutMs: 500, killGraceMs: 200, env: { ...process.env, MAKA_PIDOUT: pidFile } }),
+      );
+      assert.equal(r.timedOut, true);
+      assert.equal(r.exitCode, 124);
+      await delay(300);
+      const childPid = Number((await fs.readFile(pidFile, 'utf8')).trim());
+      assert.throws(() => process.kill(childPid, 0), /ESRCH/, 'grandchild was killed via taskkill /T');
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 });
