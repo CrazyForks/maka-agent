@@ -7414,6 +7414,34 @@ button:active {
   background: oklch(from var(--foreground) l c h / 0.025);
 }
 
+/* PR-SETTINGS-SWITCH-SCALE-0 (round 3/15, WAWQAQ msg `f7e9d166`):
+   the BaseSwitch shared adapter renders at `h-5 w-9` (20×36px) with a
+   16×16 thumb — too small inside the now-roomy settings rows.
+   Reference toggles inside Settings are noticeably larger and the
+   on-state is a more saturated green. Scope the bigger size to
+   settings rows only so the Switch primitive stays compact in chat /
+   sidebar usage. The thumb translate offset (`1.125rem` for h-5)
+   no longer reaches the right side at h-6.5, so we override it with
+   a calc that scales with the new track width. */
+.settingsFormRow [role="switch"],
+.settingsField [role="switch"] {
+  height: 26px;
+  width: 46px;
+  border-radius: 999px;
+}
+
+.settingsFormRow [role="switch"] > span,
+.settingsField [role="switch"] > span {
+  height: 22px;
+  width: 22px;
+  transform: translateX(2px);
+}
+
+.settingsFormRow [role="switch"][data-checked] > span,
+.settingsField [role="switch"][data-checked] > span {
+  transform: translateX(22px);
+}
+
 .settingsFormRow strong,
 .settingsField span,
 .settingsFormGrid label span {
