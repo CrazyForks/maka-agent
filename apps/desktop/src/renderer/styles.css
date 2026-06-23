@@ -11585,24 +11585,31 @@ button:active {
   line-height: 1.5;
 }
 
-.settingsOsPermissionImpact {
+/* PR-PERMISSION-COMPACT (WAWQAQ msg 56f997b1): the impact chip was
+   merged into the row description ("用途  ·  影响功能：X") so each
+   permission row stays a single line of meta text. The old
+   `.settingsOsPermissionImpact*` rules came out with it. */
+
+/* Inline status text next to the row title — replaces the standalone
+   PrimitiveBadge column. Tone-tinted text without a background pill
+   reads closer to the reference Settings voice and frees the right
+   side of the row for the single CTA. */
+.settingsOsPermissionInlineStatus {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.74rem;
-  color: var(--foreground-65);
-  line-height: 1.45;
-}
-.settingsOsPermissionImpactLabel {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: oklch(from var(--foreground) l c h / 0.05);
+  font-size: 0.72rem;
+  font-weight: 500;
   color: var(--foreground-55);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.005em;
+}
+.settingsOsPermissionInlineStatus[data-tone="success"] {
+  color: oklch(from var(--success) l c h);
+}
+.settingsOsPermissionInlineStatus[data-tone="warning"] {
+  color: oklch(from var(--warning, var(--info)) l c h);
+}
+.settingsOsPermissionInlineStatus[data-tone="destructive"] {
+  color: oklch(from var(--destructive) l c h);
 }
 
 .settingsOsPermissionReason {
@@ -11633,46 +11640,14 @@ button:active {
   color: oklch(from var(--success) l c h);
 }
 
-/* PR-PERMISSION-PAGE-REDESIGN: 4-cell summary above system permissions.
-   Quick read of overall posture (X granted / Y waiting / Z denied /
-   W other) so users see what's configured at a glance. */
-.settingsPermissionSummary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-.settingsPermissionSummaryTile {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px 14px;
-  border: 1px solid var(--card-border-color, var(--border));
-  border-radius: var(--card-radius, 8px);
-  background: var(--card-bg, var(--background));
-  box-shadow:
-    var(--card-shadow, none),
-    var(--card-highlight, none);
-}
-.settingsPermissionSummaryValue {
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-  color: var(--foreground);
-}
-.settingsPermissionSummaryLabel {
-  font-size: 0.72rem;
-  color: var(--foreground-60);
-  letter-spacing: 0.02em;
-}
-.settingsPermissionSummaryTile[data-tone="success"] .settingsPermissionSummaryValue {
-  color: oklch(from var(--success) l c h);
-}
-.settingsPermissionSummaryTile[data-tone="warning"] .settingsPermissionSummaryValue {
-  color: oklch(from var(--warning, var(--info)) l c h);
-}
-.settingsPermissionSummaryTile[data-tone="destructive"] .settingsPermissionSummaryValue {
-  color: oklch(from var(--destructive) l c h);
+/* PR-PERMISSION-COMPACT (WAWQAQ msg 56f997b1): the 4-tile KPI summary
+   band was removed. The counts now sit in the section subtitle, and
+   the per-row inline status already shows posture row by row. */
+
+.settingsPermissionSubdivider {
+  display: inline-block;
+  margin: 0 4px;
+  color: var(--foreground-35);
 }
 
 /* Diagnostic 5-column capability detail collapsed by default so the

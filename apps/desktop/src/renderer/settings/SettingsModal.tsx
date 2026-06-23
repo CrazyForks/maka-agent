@@ -6343,17 +6343,22 @@ function PermissionCenterPage() {
         </div>
       </header>
 
-      <section className="settingsPermissionSummary" aria-label="权限概览">
-        <PermissionSummaryTile label="已授权" value={counts.granted} tone="success" />
-        <PermissionSummaryTile label="等待授权" value={counts.pending} tone="warning" />
-        <PermissionSummaryTile label="已拒绝" value={counts.denied} tone="destructive" />
-        <PermissionSummaryTile label="未知 / 不支持" value={counts.other} tone="neutral" />
-      </section>
-
+      {/* PR-PERMISSION-COMPACT (WAWQAQ msg 56f997b1 2026-06-23): the
+          4-tile KPI summary band was removed. Reference Settings put
+          the status badge inline on each permission row, so the band
+          repeated information the rows already carry — busier without
+          being more useful. Counts are still derived for an inline
+          subtitle below the section title. */}
       <section aria-label="系统权限" className="settingsPermissionSection">
         <header>
           <h4>系统权限</h4>
-          <small>Maka 读到的 OS 级权限状态。点击右侧按钮可以直接前往「系统设置 → 隐私与安全性」对应分区。</small>
+          <small>
+            {counts.granted}/{OS_PERMISSION_IDS.length} 已授权
+            {counts.pending > 0 ? ` · ${counts.pending} 待授权` : ''}
+            {counts.denied > 0 ? ` · ${counts.denied} 已拒绝` : ''}
+            <span className="settingsPermissionSubdivider"> · </span>
+            点击右侧按钮直接前往「系统设置 → 隐私与安全性」对应分区。
+          </small>
         </header>
         <ul className="settingsOsPermissionList" aria-label="系统权限列表">
           {OS_PERMISSION_IDS.map((id) => (
@@ -6397,19 +6402,6 @@ function PermissionCenterPage() {
         高风险自动化能力必须保持逐项审批、可审计、可撤销。
         这里只读取系统权限与功能能力的当前快照，授权变更仍需在「系统设置 → 隐私与安全性」完成。
       </p>
-    </div>
-  );
-}
-
-function PermissionSummaryTile(props: {
-  label: string;
-  value: number;
-  tone: 'success' | 'warning' | 'destructive' | 'neutral';
-}) {
-  return (
-    <div className="settingsPermissionSummaryTile" data-tone={props.tone}>
-      <span className="settingsPermissionSummaryValue">{props.value}</span>
-      <span className="settingsPermissionSummaryLabel">{props.label}</span>
     </div>
   );
 }
@@ -6624,6 +6616,20 @@ function OsPermissionRow(props: {
 
   const showRequest = snapshot.canRequest && snapshot.status !== 'granted';
   const showOpenSettings = snapshot.canOpenSettings && snapshot.status !== 'granted';
+  // PR-PERMISSION-COMPACT (WAWQAQ msg 56f997b1 2026-06-23): when both
+  // "request access" and "open system settings" are available, only
+  // show "request" — it's the more direct action. The deep-link to
+  // System Settings stays available via the system-level shortcut in
+  // the section header. Two stacked CTAs on the same row read as a
+  // form, not a settings item.
+  const primaryAction = showRequest
+    ? { key: 'request' as const, label: pendingKey === 'request' ? '请求中…' : '请求授权', onClick: props.onRequest }
+    : showOpenSettings
+      ? { key: 'openSettings' as const, label: pendingKey === 'openSettings' ? '打开中…' : '去授权', onClick: props.onOpenSettings }
+      : null;
+  const combinedDescription = impact
+    ? `${purpose}  ·  影响功能：${impact}`
+    : purpose;
 
   return (
     <li className="settingsOsPermissionRow" data-state={snapshot.status}>
@@ -6633,41 +6639,28 @@ function OsPermissionRow(props: {
       <div className="settingsOsPermissionBody">
         <div className="settingsOsPermissionHeading">
           <strong>{label}</strong>
-          <PrimitiveBadge variant={statusBadgeVariant(stateCopy.tone)}>{stateCopy.label}</PrimitiveBadge>
+          <span className="settingsOsPermissionInlineStatus" data-tone={stateCopy.tone}>
+            {stateCopy.label}
+          </span>
         </div>
-        <small className="settingsOsPermissionPurpose">{purpose}</small>
-        {impact ? (
-          <small className="settingsOsPermissionImpact">
-            <span className="settingsOsPermissionImpactLabel">影响功能</span>
-            <span>{impact}</span>
-          </small>
+        {combinedDescription ? (
+          <small className="settingsOsPermissionPurpose">{combinedDescription}</small>
         ) : null}
         {snapshot.reason ? (
           <small className="settingsOsPermissionReason">{snapshot.reason}</small>
         ) : null}
       </div>
       <div className="settingsOsPermissionActions">
-        {showRequest && (
+        {primaryAction && (
           <Button
             type="button"
+            variant="secondary"
             size="sm"
-            onClick={props.onRequest}
+            onClick={primaryAction.onClick}
             disabled={busy}
-            aria-busy={pendingKey === 'request' ? 'true' : undefined}
+            aria-busy={pendingKey === primaryAction.key ? 'true' : undefined}
           >
-            {pendingKey === 'request' ? '请求中…' : '请求授权'}
-          </Button>
-        )}
-        {showOpenSettings && (
-          <Button
-            type="button"
-            variant={showRequest ? 'secondary' : 'default'}
-            size="sm"
-            onClick={props.onOpenSettings}
-            disabled={busy}
-            aria-busy={pendingKey === 'openSettings' ? 'true' : undefined}
-          >
-            {pendingKey === 'openSettings' ? '打开中…' : '前往系统设置'}
+            {primaryAction.label}
           </Button>
         )}
       </div>
