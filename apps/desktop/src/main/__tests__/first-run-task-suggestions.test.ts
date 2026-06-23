@@ -183,11 +183,10 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     assert.match(source, /workspaceInstructions\.getState\(\)/);
     assert.match(source, /创建项目指令文件/);
     assert.match(source, /workspaceInstructionCount > 0/);
-    // PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23): 记忆 + 每日回顾 merged
-    // into the new `memory-review` section. The "create project
-    // instruction" checklist item still points at the same workspace
-    // instructions settings; the section id just renamed.
-    assert.match(source, /onOpenSettingsSection\('memory-review'\)/);
+    // PR-SETTINGS-REVIEW-0: memory section is on its own again
+    // (the merged memory-review page was too dense). Workspace
+    // instructions live there.
+    assert.match(source, /onOpenSettingsSection\('memory'\)/);
   });
 
   it('fails soft when first-run checklist status probes reject', async () => {

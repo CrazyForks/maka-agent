@@ -393,7 +393,8 @@ describe('visual smoke fixture mode', () => {
       { scenario: 'settings-bots', expectedSection: 'bot-chat' },
       { scenario: 'settings-about', expectedSection: 'about' },
       { scenario: 'settings-general', expectedSection: 'general' },
-      { scenario: 'settings-memory-review', expectedSection: 'memory-review' },
+      { scenario: 'settings-memory', expectedSection: 'memory' },
+      { scenario: 'settings-daily-review', expectedSection: 'daily-review' },
     ] as const;
 
     for (const { scenario, expectedSection } of cases) {

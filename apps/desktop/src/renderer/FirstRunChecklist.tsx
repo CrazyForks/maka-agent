@@ -190,7 +190,7 @@ export function FirstRunChecklist(props: FirstRunChecklistProps) {
           : '项目指令状态暂时没刷新成功，打开记忆设置可查看。',
         done: workspaceInstructionStatusKnown && workspaceInstructionCount > 0,
         trackCompletion: workspaceInstructionStatusKnown,
-        onClick: () => props.onOpenSettingsSection('memory-review'),
+        onClick: () => props.onOpenSettingsSection('memory'),
       },
       {
         // xuan c06e13f transparent MEMORY.md MVP + my
@@ -205,7 +205,7 @@ export function FirstRunChecklist(props: FirstRunChecklistProps) {
         done:
           settings.localMemory.enabled
           && settings.localMemory.agentReadEnabled,
-        onClick: () => props.onOpenSettingsSection('memory-review'),
+        onClick: () => props.onOpenSettingsSection('memory'),
       },
       {
         // xuan d91422d PR-VOICE-CAPTURE-SMOKE-0: Settings → 语音模型

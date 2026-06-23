@@ -7,6 +7,7 @@ import {
   Bot,
   Brain,
   CalendarDays,
+  ChevronLeft,
   Cpu,
   Database,
   Info,
@@ -201,19 +202,18 @@ function SettingsSelect<T extends string>(props: {
 // node:test without a DOM / React.
 export type { SettingsNavGroup };
 
-// PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23, WAWQAQ msg `d93fe001`):
-// 16 → 12 visible sections. Single-purpose pages folded back into
-// broader containers to mirror reference's nav shape (one big
-// Preferences + a small set of narrow tabs). See
-// `notes/reference-settings.md` §7 for the mapping.
+// PR-SETTINGS-IA-CONSOLIDATE-0 + PR-SETTINGS-REVIEW-0: WAWQAQ msg
+// `886f6406` rolled back the 记忆+回顾 merge — the combined page was
+// too dense. 记忆 and 每日回顾 are separate nav items again.
 export const SETTINGS_NAV: SettingsNavItem[] = [
-  // Group 1: 基础 — 通用 (kitchen sink) + 外观 (theme + personalization merged)
+  // Group 1: 基础 — 通用 (kitchen sink) + 外观 (personalization + theme merged)
   { id: 'general', label: '通用', Icon: SettingsIcon, enabled: true, group: '基础' },
   { id: 'appearance', label: '外观', Icon: Palette, enabled: true, group: '基础' },
-  // Group 2: AI — models, usage, memory+review, voice+gateway merged
+  // Group 2: AI — models, usage, memory, daily-review, voice+gateway
   { id: 'models', label: '模型', Icon: Cpu, enabled: true, group: 'AI' },
   { id: 'usage', label: '使用统计', Icon: BarChart3, enabled: true, group: 'AI' },
-  { id: 'memory-review', label: '记忆与回顾', Icon: Brain, enabled: true, group: 'AI' },
+  { id: 'memory', label: '记忆', Icon: Brain, enabled: true, group: 'AI' },
+  { id: 'daily-review', label: '每日回顾', Icon: CalendarDays, enabled: true, group: 'AI' },
   { id: 'voice-gateway', label: '语音与网关', Icon: Volume2, enabled: true, group: 'AI' },
   // Group 3: 集成 — bot、搜索 (network/proxy now lives inside 通用)
   { id: 'bot-chat', label: '机器人对话', Icon: Bot, enabled: true, group: '集成' },
@@ -957,6 +957,20 @@ function SettingsSurface(props: {
     <main className="settingsSurface agents-layout-body" data-modal="true" aria-label="设置内容">
       <aside className="settingsSidebar agents-sidebar" data-settings-nav-column aria-label="设置侧栏">
         <div className="settingsSidebarInner">
+          {/* PR-SETTINGS-REVIEW-0 (WAWQAQ msg `e1194266`): the
+              right-side X close button was visually orphaned at the
+              page-top. Replace with a `← 返回` link at the top of the
+              sidebar, matching reference's `返回应用` affordance. */}
+          <Button
+            className="settingsBackButton"
+            variant="quiet"
+            type="button"
+            aria-label="返回应用"
+            onClick={props.onClose}
+          >
+            <ChevronLeft size={14} strokeWidth={1.75} aria-hidden="true" />
+            <span>返回应用</span>
+          </Button>
           <header>
             <span>设置</span>
           </header>
@@ -990,9 +1004,6 @@ function SettingsSurface(props: {
       <section className="settingsMainPane agents-content-area" data-agents-view="settings">
         <header className="settingsPageHeader">
           <h2>{activeItem.label}</h2>
-          <Button className="settingsCloseButton" variant="quiet" size="icon-sm" type="button" aria-label="关闭设置" onClick={props.onClose}>
-            <X strokeWidth={1.75} aria-hidden="true" />
-          </Button>
         </header>
 
         <OverlayScrollArea
@@ -1104,11 +1115,14 @@ function SettingsPage(props: {
         </div>
       );
     case 'appearance':
-      // PR-SETTINGS-IA-CONSOLIDATE-0: 主题 + 个性化 → 外观.
-      // PR-SETTINGS-SWEEP-0: per-section uppercase heading so the user
-      // can see the two sub-blocks as belonging to one page.
+      // PR-SETTINGS-IA-CONSOLIDATE-0 + PR-SETTINGS-REVIEW-0 (WAWQAQ msg
+      // `6759cd0f`): 个性化 first, 主题 after. Personalization is the
+      // identity / display-name block; theme is presentation. Reading
+      // top→down the user picks "who am I" then "how does it look".
       return (
         <div className="settingsStructuredPage">
+          <h2 className="settingsSectionHeading">个性化</h2>
+          <PersonalizationSettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />
           <h2 className="settingsSectionHeading">主题</h2>
           <ThemeSettingsPage
             themePref={props.themePref}
@@ -1120,8 +1134,6 @@ function SettingsPage(props: {
             onDensityChange={props.onDensityChange}
             onThemePaletteChange={props.onThemePaletteChange}
           />
-          <h2 className="settingsSectionHeading">个性化</h2>
-          <PersonalizationSettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />
         </div>
       );
     case 'data':
@@ -1138,21 +1150,18 @@ function SettingsPage(props: {
       return <PermissionCenterPage />;
     case 'health':
       return <HealthCenterPage />;
-    case 'memory-review':
-      // PR-SETTINGS-IA-CONSOLIDATE-0: 记忆 + 每日回顾 → 记忆与回顾.
-      // PR-SETTINGS-SWEEP-0: section heading per sub-block.
+    case 'memory':
+      // PR-SETTINGS-REVIEW-0 (WAWQAQ msg `886f6406`): the merged
+      // memory-review page was too dense; 记忆 is its own page again.
       return (
-        <div className="settingsStructuredPage">
-          <h2 className="settingsSectionHeading">本地记忆</h2>
-          <MemorySettingsPage
-            settings={props.settings}
-            onUpdate={props.onUpdateSettings}
-            onReloadSettings={props.onReloadSettings}
-          />
-          <h2 className="settingsSectionHeading">每日回顾</h2>
-          <DailyReviewSettingsPage onOpenDailyReview={props.onOpenDailyReview} />
-        </div>
+        <MemorySettingsPage
+          settings={props.settings}
+          onUpdate={props.onUpdateSettings}
+          onReloadSettings={props.onReloadSettings}
+        />
       );
+    case 'daily-review':
+      return <DailyReviewSettingsPage onOpenDailyReview={props.onOpenDailyReview} />;
     case 'voice-gateway':
       // PR-SETTINGS-IA-CONSOLIDATE-0: 语音模型 + 开放网关 → 语音与网关.
       // PR-SETTINGS-SWEEP-0: section heading per sub-block.

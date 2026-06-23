@@ -17,22 +17,25 @@ import {
 import { defaultLocalMemorySettings, normalizeLocalMemorySettings } from './local-memory.js';
 
 /**
- * PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23, WAWQAQ msg `d93fe001`):
- * 4 single-purpose pages merged into broader containers to mirror the
- * reference Settings shape (one big Preferences page + a small set of
- * narrow tabs). Mapping from the old set:
+ * PR-SETTINGS-IA-CONSOLIDATE-0 + PR-SETTINGS-REVIEW-0 (WAWQAQ msg
+ * `886f6406`): the memory+review merge had too much density and got
+ * split back out. Other merges (network→general, personalization+
+ * theme→appearance, voice-models+open-gateway→voice-gateway) held.
  *
- *   - `network`                       → `general` (proxy block lives at the bottom)
+ * Final mapping:
+ *   - `network`                       → `general`
  *   - `personalization` + `theme`     → `appearance`
- *   - `memory` + `daily-review`       → `memory-review`
  *   - `voice-models` + `open-gateway` → `voice-gateway`
+ *   - `daily-review` is its own section again
+ *   - `memory` is its own section again
  *
- * 16 visible sections → 12. See notes/reference-settings.md §7.
+ * 13 visible sections. See notes/reference-settings.md §7.
  */
 export type SettingsSection =
   | 'general'
   | 'appearance'
-  | 'memory-review'
+  | 'memory'
+  | 'daily-review'
   | 'models'
   | 'usage'
   | 'voice-gateway'

@@ -2902,7 +2902,7 @@ function AppShell() {
                 onModelChange={(input) => setSessionModel(input)}
                 userLabel={userLabel}
                 memoryActive={memoryActive}
-                onOpenMemorySettings={() => openSettingsSection('memory-review')}
+                onOpenMemorySettings={() => openSettingsSection('memory')}
                 mode={navSelection.section}
                 connectionAlert={chatConnectionAlert}
                 eventStreamAlert={chatEventStreamAlert}

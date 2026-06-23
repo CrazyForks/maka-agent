@@ -69,12 +69,13 @@ const ALL_SCENARIOS = [
   'permission-destructive',
   'stale-sessions',
   'settings-data',
-  // PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23): consolidated nav.
+  // PR-SETTINGS-IA-CONSOLIDATE-0 + PR-SETTINGS-REVIEW-0: memory split out.
   'settings-appearance',
   'settings-bots',
   'settings-about',
   'settings-general',
-  'settings-memory-review',
+  'settings-memory',
+  'settings-daily-review',
   'module-skills',
   'module-daily-review',
   'workstation-statuses',

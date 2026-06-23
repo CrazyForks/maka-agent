@@ -35,14 +35,14 @@ const VISUAL_SMOKE_SCENARIOS = new Set<VisualSmokeScenario>([
   // assistantTone, network proxy, etc. — already comes from the
   // default settings.json seed.)
   'settings-data',
-  // PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23, WAWQAQ msg `d93fe001`):
-  // settings nav consolidation. `personalization + theme` → appearance;
-  // `daily-review + memory` → memory-review; `network` (proxy) → general.
+  // PR-SETTINGS-IA-CONSOLIDATE-0 + PR-SETTINGS-REVIEW-0: memory and
+  // daily-review split back apart per WAWQAQ msg `886f6406`.
   'settings-appearance',
   'settings-bots',
   'settings-about',
   'settings-general',
-  'settings-memory-review',
+  'settings-memory',
+  'settings-daily-review',
   'module-skills',
   'module-daily-review',
   // PR109b: workstation-statuses — seed one session per SessionStatus
@@ -339,8 +339,10 @@ export function getVisualSmokeState(fixture: VisualSmokeFixture | null): VisualS
       // PR-SETTINGS-IA-CONSOLIDATE-0: 通用 now also hosts the proxy
       // block that used to live on its own 网络 page.
       return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'general' };
-    case 'settings-memory-review':
-      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'memory-review' };
+    case 'settings-memory':
+      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'memory' };
+    case 'settings-daily-review':
+      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'daily-review' };
     case 'module-skills':
       return { ...state, activeSessionId: TURN_SESSION_ID, sidebarSection: 'skills', sidebarCollapsed: false };
     case 'module-daily-review':
@@ -506,7 +508,7 @@ export async function seedVisualSmokeFixture(input: {
   if (input.fixture.scenario === 'plan-reminders') {
     await writePlanReminders(input.workspaceRoot, now);
   }
-  if (input.fixture.scenario === 'module-daily-review' || input.fixture.scenario === 'settings-memory-review') {
+  if (input.fixture.scenario === 'module-daily-review' || input.fixture.scenario === 'settings-daily-review') {
     await writeDailyReviewArchives(input.workspaceRoot, now);
   }
 }

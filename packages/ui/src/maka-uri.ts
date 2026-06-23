@@ -55,7 +55,8 @@ import type { SettingsSection } from '@maka/core';
 const ALLOWED_SETTINGS_SECTIONS = new Set<SettingsSection>([
   'general',
   'appearance',
-  'memory-review',
+  'memory',
+  'daily-review',
   'models',
   'usage',
   'voice-gateway',
