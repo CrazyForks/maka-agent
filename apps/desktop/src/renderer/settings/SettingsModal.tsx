@@ -5,9 +5,9 @@ import {
   BarChart3,
   Bell,
   Bot,
+  ArrowLeft,
   Brain,
   CalendarDays,
-  ChevronLeft,
   Cpu,
   Database,
   Info,
@@ -957,10 +957,9 @@ function SettingsSurface(props: {
     <main className="settingsSurface agents-layout-body" data-modal="true" aria-label="设置内容">
       <aside className="settingsSidebar agents-sidebar" data-settings-nav-column aria-label="设置侧栏">
         <div className="settingsSidebarInner">
-          {/* PR-SETTINGS-REVIEW-0 (WAWQAQ msg `e1194266`): the
-              right-side X close button was visually orphaned at the
-              page-top. Replace with a `← 返回` link at the top of the
-              sidebar, matching reference's `返回应用` affordance. */}
+          {/* PR-SETTINGS-NO-PANE-BORDER-0 (WAWQAQ msg `8effe691`):
+              reference sidebar has just `← 返回应用` then straight
+              into the nav — no big "设置" brand label. Match it. */}
           <Button
             className="settingsBackButton"
             variant="quiet"
@@ -968,12 +967,9 @@ function SettingsSurface(props: {
             aria-label="返回应用"
             onClick={props.onClose}
           >
-            <ChevronLeft size={14} strokeWidth={1.75} aria-hidden="true" />
+            <ArrowLeft size={16} strokeWidth={1.85} aria-hidden="true" />
             <span>返回应用</span>
           </Button>
-          <header>
-            <span>设置</span>
-          </header>
           <nav aria-label="设置分组">
             {groupedNav().map(({ group, items }) => (
               <div key={group} className="settingsNavGroup" role="group" aria-label={group}>
@@ -1091,27 +1087,34 @@ function SettingsPage(props: {
     case 'about':
       return <AboutSettingsPage />;
     case 'general':
-      // PR-SETTINGS-IA-CONSOLIDATE-0: 通用 now also hosts the proxy
-      // block that used to live on its own 网络 page.
+      // PR-SETTINGS-NO-PANE-BORDER-0 (WAWQAQ msg `d0e7dfb3`):
+      // multiple grouped cards stacked vertically, each one its own
+      // `<SettingsRows>` card. 隐身模式 alone, system defaults
+      // together, proxy alone — same shape as the reference layout
+      // (which has separate cards per logical group).
       return (
         <div className="settingsStructuredPage">
-          <div className="settingsFormRow">
-            <div>
-              <strong>隐身模式</strong>
-              <small>开启后暂停本地记忆读写、联网搜索和计划提醒触发；关闭后恢复正常工作区状态。</small>
+          <SettingsRows>
+            <div className="settingsFormRow">
+              <div>
+                <strong>隐身模式</strong>
+                <small>开启后暂停本地记忆读写、联网搜索和计划提醒触发；关闭后恢复正常工作区状态。</small>
+              </div>
+              <Switch
+                ariaLabel="启用隐身模式"
+                checked={props.settings.privacy.incognitoActive}
+                onChange={(incognitoActive) => void props.onUpdateSettings({ privacy: { incognitoActive } })}
+              />
             </div>
-            <Switch
-              ariaLabel="启用隐身模式"
-              checked={props.settings.privacy.incognitoActive}
-              onChange={(incognitoActive) => void props.onUpdateSettings({ privacy: { incognitoActive } })}
-            />
-          </div>
+          </SettingsRows>
           <SettingsRows>
             <SettingRow title="启动" detail="打开应用后回到最近一次对话。" value="已启用" />
             <SettingRow title="新对话模式" detail="新对话默认从确认模式开始。" value="确认" />
             <SettingRow title="默认模型" detail="新对话默认使用的模型连接。" value={props.defaultSlug ?? '未设置'} />
           </SettingsRows>
-          <NetworkProxySection settings={props.settings} onUpdate={props.onUpdateSettings} />
+          <SettingsRows>
+            <NetworkProxySection settings={props.settings} onUpdate={props.onUpdateSettings} />
+          </SettingsRows>
         </div>
       );
     case 'appearance':

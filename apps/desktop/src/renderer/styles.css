@@ -7246,20 +7246,27 @@ button:active {
    and content were visibly misaligned. Drop the mainpane padding to
    thin top/bottom so the header + content can both share the centered
    column. */
+/* PR-SETTINGS-NO-PANE-BORDER-0 (2026-06-23, WAWQAQ msg `aabfa2b8`):
+   the right pane was rendering as a separate floating plate (border +
+   tinted bg + corner radius + margin gap from sidebar). Reference's
+   Settings has NO seam between the sidebar and the content surface —
+   they share one continuous canvas. Drop the pane border, radius,
+   margin, and explicit background so the right pane visually flows
+   into the same surface as the nav. */
 .settingsMainPane {
   position: relative;
   min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  margin: var(--agents-content-area-gap) var(--agents-content-area-gap) var(--agents-content-area-gap) 0;
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--agents-content-area-radius);
-  background: var(--agents-content-area-bg);
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
   overflow: hidden;
-  /* PR-SETTINGS-REVIEW-0: traffic-light-aligned top padding so the
-     page title sits at the same Y baseline as the sidebar brand. */
+  /* Traffic-light-aligned top padding so the page title sits at the
+     same Y baseline as the sidebar brand. */
   padding: 52px 0 0;
 }
 
@@ -7315,27 +7322,25 @@ button:active {
   padding: 40px 24px 64px;
 }
 
-/* PR-SETTINGS-GROUPED-CARD-0 (2026-06-23, WAWQAQ msg `1abecd66`):
-   reference packs settings rows tightly inside ONE outer card and
-   separates them with hairline dividers — NOT per-row standalone
-   cards with gaps. Switch to that pattern: the page container is the
-   card; rows are flush, with `border-bottom` between adjacent rows. */
+/* PR-SETTINGS-NO-PANE-BORDER-0 (WAWQAQ msg `d0e7dfb3`): nested
+   card-in-card was the previous problem — `.settingsStructuredPage`
+   was a card AND it contained `<SettingsRows>` cards AND orphan
+   `.settingsFormRow` direct children. Reference shows multiple
+   GROUPED cards stacked vertically. So `.settingsStructuredPage` is
+   no longer a card — it's just the vertical container with gap, and
+   `.settingsRows` is the ONLY card primitive. */
 .settingsStructuredPage {
   display: grid;
   align-content: start;
-  gap: 0;
-  border: 1px solid oklch(from var(--foreground) l c h / 0.08);
-  border-radius: 12px;
-  overflow: hidden;
+  gap: 16px;
   background: transparent;
 }
 
-/* Merged sub-pages (外观, 通用 has proxy block at bottom): both
-   surfaces flow into the same outer card — strip nested chrome. */
+/* Nested `.settingsStructuredPage` (merged pages like 外观 stack two
+   sub-pages, each wrapping in their own `.settingsStructuredPage`):
+   the inner one just passes through. */
 .settingsStructuredPage .settingsStructuredPage {
-  border: 0;
-  border-radius: 0;
-  overflow: visible;
+  gap: 16px;
 }
 
 /* PR-SETTINGS-SWEEP-0: section heading for merged pages. Mirrors
