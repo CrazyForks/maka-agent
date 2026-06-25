@@ -37,6 +37,7 @@ export * from './primitives/frame.js';
 export * from './primitives/choice-card.js';
 export * from './primitives/preview-card.js';
 export * from './primitives/settings-select.js';
+export * from './primitives/settings-switch.js';
 export * from './primitives/input-group.js';
 export * from './primitives/pagination.js';
 export * from './primitives/sidebar.js';

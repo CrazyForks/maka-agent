@@ -94,8 +94,8 @@ import {
   OverlayScrollArea,
   RelativeTime,
   SettingsSelect,
+  SettingsSwitch as Switch,
   PrimitiveBadge,
-  Switch as BaseUiSwitch,
   Textarea,
   redactSecrets,
   useModalA11y,
@@ -6126,37 +6126,11 @@ function statusBadgeVariant(tone: StatusTone): 'success' | 'warning' | 'destruct
   }
 }
 
-/**
- * PR-USE-SHADCN-BASE-UI-SWITCH — internal adapter that maps the existing
- * `{ ariaLabel, checked, onChange, disabled, ariaDescribedBy }` callsite
- * shape onto the shared `BaseUiSwitch` (Base UI `Switch.Root` +
- * `Switch.Thumb` styled with the project's semantic Tailwind tokens).
- *
- * Why an adapter, not a callsite rewrite: 15+ Switch usages across this
- * 6900-line settings module all use `ariaLabel` / `onChange`. Renaming
- * every callsite at the same time would conflict with the parallel
- * Settings polish lanes; the adapter lets us swap the implementation
- * (now real `[role="switch"]` semantics, real Base UI keyboard/focus
- * handling, proper data-checked attribute) without touching the
- * callers.
- */
-function Switch(props: {
-  ariaLabel: string;
-  checked: boolean;
-  onChange(checked: boolean): void;
-  disabled?: boolean;
-  ariaDescribedBy?: string;
-}) {
-  return (
-    <BaseUiSwitch
-      aria-label={props.ariaLabel}
-      aria-describedby={props.ariaDescribedBy}
-      checked={props.checked}
-      disabled={props.disabled}
-      onCheckedChange={(next) => props.onChange(next)}
-    />
-  );
-}
+// `Switch` adapter (15+ settings toggle callsites use `ariaLabel /
+// onChange`) was moved to `packages/ui/src/primitives/settings-switch.tsx`
+// as `SettingsSwitch`. Imported above as `Switch` so the call sites
+// don't need touching. PR yuejing/switch-primitive-and-css-cleanup
+// (WAWQAQ msg `f1461d30`).
 
 /**
  * PR-UI-8 — Permission Center read-only page. Consumes `window.maka.permissions.getSnapshot()`
