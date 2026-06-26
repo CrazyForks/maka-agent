@@ -58,10 +58,17 @@
   letter-spacing: 0.04em;
 }
 
-/* PR-BOT-SETTINGS-UI-0 (WAWQAQ msg `51c7b4ff`): brand-tinted monogram
-   badge. `--bot-brand-color` is the per-platform brand color set
-   inline by BotBrandLogo. Background uses ~14% tint so the brand
-   reads clearly without overpowering the row. */
+/* PR-BOT-LOGO-NEUTRAL-PLATE-0 (WAWQAQ msg `f3d263b4` 2026-06-26):
+   real iOS-app-icon style. The brand SVG itself now carries the
+   brand-color disc + white official mark (Telegram blue gradient
+   + white paper plane, WeChat green + white double-bubble, etc.) —
+   see `packages/ui/src/bot-brand-icons.ts`. The CSS plate just
+   reserves the tile slot and lets the SVG fill it edge-to-edge;
+   no neutral wash and no plate border so the brand tile reads as
+   a real app icon. `--bot-brand-color` is still set inline by
+   `BotBrandLogo` for the status-dot tint and Hero brand wash. The
+   glyph fallback (`微` / `企` / `飞` / `钉` / `T` / `D` / `Q`)
+   renders centered in the brand color when an SVG fails to load. */
 @layer components {
   .settingsBotLogo {
     position: relative;
@@ -69,19 +76,25 @@
     height: 28px;
     display: grid;
     place-items: center;
-    border-radius: 9px;
-    background: color-mix(in srgb, var(--bot-brand-color, var(--accent)) 14%, var(--background));
+    border-radius: 50%;
+    background: transparent;
     color: var(--bot-brand-color, var(--accent));
+    overflow: hidden;
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0;
     flex-shrink: 0;
   }
+  .settingsBotLogo svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
 
   .settingsBotLogo[data-large="true"] {
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: 50%;
     font-size: 20px;
   }
 
