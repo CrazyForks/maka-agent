@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { readRendererContractCss } from './contract-css-helpers.js';
-import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
+import { readRendererShellCombinedSource, readRendererShellSources } from './renderer-shell-source-helpers.js';
 import { readSettingsCombinedSource } from './settings-contract-source-helpers.js';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
@@ -16,7 +16,12 @@ describe('Daily Review copy feedback contract', () => {
   it('lets the app shell own clipboard success and failure feedback', async () => {
     const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
     const chatView = await readFile(resolve(REPO_ROOT, 'packages/ui/src/chat-view.tsx'), 'utf8');
-    const main = await readRendererShellCombinedSource();
+    const main = await readRendererShellSources([
+      'daily-review-actions.ts',
+      'app-shell-daily-review-actions.ts',
+      'app-shell-command-actions.ts',
+      'app-shell.tsx',
+    ]);
 
     assert.match(chatView, /onCopyDailyReviewMarkdown\?: \(input:/);
     assert.match(chatView, /onCopyMarkdown=\{props\.onCopyDailyReviewMarkdown\}/);
@@ -25,8 +30,8 @@ describe('Daily Review copy feedback contract', () => {
     assert.match(ui, /const hasDailyReviewActions = Boolean\(props\.onCopyMarkdown \|\| props\.onAppendMarkdown \|\| props\.onSaveMarkdown\)/);
     assert.match(ui, /visibleSummary && visibleSummary\.totals\.sessionCount \+ visibleSummary\.totals\.requestCount > 0 && hasDailyReviewActions/);
     assert.doesNotMatch(ui, /navigator\.clipboard\.writeText\(md\)\.catch\(\(\) => \{\}\)/);
-    assert.match(main, /onCopyDailyReviewMarkdown=\{async \(\{ markdown, label, summary \}\) => \{/);
-    assert.match(main, /await navigator\.clipboard\.writeText\(markdown\)/);
+    assert.match(main, /onCopyDailyReviewMarkdown=\{\(input\) => copyDailyReviewMarkdown\(input, \{ shouldShowFeedback: isDailyReviewSurfaceActive \}\)\}/);
+    assert.match(main, /async function copyDailyReviewMarkdown\([\s\S]*?await navigator\.clipboard\.writeText\(input\.markdown\)/);
     assert.match(
       main,
       /function isDailyReviewSurfaceActive\(\): boolean \{[\s\S]*return navSelectionRef\.current\.section === 'daily-review';[\s\S]*\}/,
@@ -34,18 +39,23 @@ describe('Daily Review copy feedback contract', () => {
     );
     assert.match(
       main,
-      /if \(isDailyReviewSurfaceActive\(\)\) \{[\s\S]*toastApi\.success\(\s*`已复制\$\{label\}回顾`/,
+      /const shouldShowFeedback = options\.shouldShowFeedback \?\? \(\(\) => true\);[\s\S]*if \(shouldShowFeedback\(\)\) \{[\s\S]*toastApi\.success\(\s*`已复制\$\{input\.label\}回顾`/,
       'Daily Review copy success must not toast after leaving the Daily Review surface',
     );
     assert.match(
       main,
-      /if \(isDailyReviewSurfaceActive\(\)\) \{[\s\S]*toastApi\.error\('复制失败', dailyReviewActionErrorMessage\(error, '剪贴板不可用或被系统拒绝'\)\)/,
+      /if \(shouldShowFeedback\(\)\) \{[\s\S]*toastApi\.error\('复制失败', dailyReviewActionErrorMessage\(error, '剪贴板不可用或被系统拒绝'\)\)/,
       'Daily Review copy failure must not toast after leaving the Daily Review surface',
     );
   });
 
   it('appends Daily Review markdown to the composer instead of replacing the existing draft', async () => {
-    const main = await readRendererShellCombinedSource();
+    const main = await readRendererShellSources([
+      'daily-review-actions.ts',
+      'app-shell-daily-review-actions.ts',
+      'app-shell-command-actions.ts',
+      'app-shell.tsx',
+    ]);
     const handlerBlock = main.match(/onPasteTodayDailyReviewIntoComposer:\s*async \(\) => \{[\s\S]*?^\s*},/m)?.[0] ?? '';
 
     assert.match(handlerBlock, /const owner = captureComposerImportOwner\(\)/);
@@ -67,15 +77,16 @@ describe('Daily Review copy feedback contract', () => {
     const chatView = await readFile(resolve(REPO_ROOT, 'packages/ui/src/chat-view.tsx'), 'utf8');
     const main = await readRendererShellCombinedSource();
     const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
-    const mainPaneBlock = main.match(/onAppendDailyReviewMarkdown=\{\(\{ markdown, label, summary \}\) => \{[\s\S]*?^\s*}\}/m)?.[0] ?? '';
+    const appendBlock = main.match(/function appendDailyReviewMarkdown\(input: DailyReviewMarkdownInput\): void \{[\s\S]*?^\s*}/m)?.[0] ?? '';
 
     assert.match(chatView, /onAppendDailyReviewMarkdown\?: \(input:/);
     assert.match(chatView, /onAppendMarkdown=\{props\.onAppendDailyReviewMarkdown\}/);
     assert.match(panelBlock, /props\.onAppendMarkdown\?\.\(\{\s*markdown:\s*md,\s*label:\s*dayLabel,\s*summary: visibleSummary\s*\}\)/);
     assert.match(panelBlock, /pendingDailyReviewAction === 'append' \? '追加中…' : '粘到输入框'/);
-    assert.match(mainPaneBlock, /composerRef\.current\?\.appendText\(markdown\)/);
-    assert.match(mainPaneBlock, /toastApi\.success\(\s*`已追加\$\{label\}回顾到输入框`/);
-    assert.doesNotMatch(mainPaneBlock, /composerRef\.current\?\.setText\(markdown\)/);
+    assert.match(main, /onAppendDailyReviewMarkdown=\{appendDailyReviewMarkdown\}/);
+    assert.match(appendBlock, /composerRef\.current\?\.appendText\(input\.markdown\)/);
+    assert.match(appendBlock, /toastApi\.success\(\s*`已追加\$\{input\.label\}回顾到输入框`/);
+    assert.doesNotMatch(appendBlock, /composerRef\.current\?\.setText\(input\.markdown\)/);
   });
 
   it('renders Daily Review controls through shared button variants without legacy button classes', async () => {

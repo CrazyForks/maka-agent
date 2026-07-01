@@ -228,6 +228,36 @@ describe('permission mode transition guard copy', () => {
     );
     assert.doesNotMatch(setPermissionModeBlock, /window\.maka\.sessions\.setPermissionMode\(activeId, mode\)/);
   });
+
+  it('uses pending new-chat permission mode for the first new session', async () => {
+    const renderer = await readRendererShellCombinedSource();
+
+    assert.match(
+      renderer,
+      /const \[pendingNewChatPermissionMode, setPendingNewChatPermissionMode\] = useState<PermissionMode \| null>\(null\)/,
+      'The shell must keep a renderer-only permission mode pick while no session is active',
+    );
+    assert.match(
+      renderer,
+      /permissionMode:\s*pendingNewChatPermissionMode \?\? 'ask'/,
+      'New session creation must use the no-session permission mode pick instead of always creating ask-mode sessions',
+    );
+    assert.match(
+      renderer,
+      /setPendingNewChatPermissionMode\(null\)/,
+      'Successful first send must clear the pending no-session permission mode pick',
+    );
+    assert.match(
+      renderer,
+      /permissionMode=\{activeSessionForView\?\.permissionMode \?\? pendingNewChatPermissionMode \?\? undefined\}/,
+      'The Composer mode chip must show the pending no-session pick before the first message creates a session',
+    );
+    assert.match(
+      renderer,
+      /permissionModeDisabledReason=\{[\s\S]*activeId && activeSessionForView\?\.status === 'running'/,
+      'No-session permission mode picks must stay enabled while running/waiting guards apply only to existing sessions',
+    );
+  });
 });
 
 describe('describeTurnErrorClass (PR109e-d @kenji gate #3)', () => {
