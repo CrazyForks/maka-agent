@@ -10,7 +10,7 @@ import { OnboardingHero } from '../src/renderer/OnboardingHero';
 const NOW = Date.UTC(2026, 6, 1, 9, 30, 0);
 
 const meta = {
-  title: 'Product/App Shell',
+  title: 'Product/Shell Child Composition',
   parameters: {
     layout: 'fullscreen',
   },
@@ -150,6 +150,10 @@ function ShellFrame(props: { children: ReactNode }) {
   );
 }
 
+// Composition smoke: mounts the real SessionListPanel + ChatView + Composer
+// + topbar chrome pieces side-by-side. Does NOT mount the monolithic
+// AppShell (1442 lines, heavy IPC coupling). When AppShell's internal
+// layout shifts, this story may drift — it owns its own 2-col scaffold.
 function ComposedShell(props: {
   sidebarCollapsed?: boolean;
   chat?: Partial<ChatViewProps>;
