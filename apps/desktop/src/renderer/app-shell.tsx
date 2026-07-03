@@ -1317,6 +1317,10 @@ export function AppShell() {
                         quickChatPending={quickChatPending}
                         connections={connections}
                         onRefreshConnections={refreshConnections}
+                        onSkip={async () => {
+                          await window.maka.onboarding.setMilestone('initial_onboarding', 'skipped');
+                          onboarding.refresh();
+                        }}
                         onImportDroppedTextFiles={importDroppedTextFilesPrompt}
                       />
                       {onboardingState.kind === 'ready_empty' && (
