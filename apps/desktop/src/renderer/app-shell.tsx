@@ -1365,8 +1365,12 @@ export function AppShell() {
                         connections={connections}
                         onRefreshConnections={refreshConnections}
                         onSkip={async () => {
-                          await window.maka.onboarding.setMilestone('initial_onboarding', 'skipped');
-                          onboarding.refresh();
+                          try {
+                            await window.maka.onboarding.setMilestone('initial_onboarding', 'skipped');
+                            onboarding.refresh();
+                          } catch (error) {
+                            toastApi.error('跳过失败', generalizedErrorMessageChinese(error, '请稍后重试。'));
+                          }
                         }}
                         onImportDroppedTextFiles={importDroppedTextFilesPrompt}
                       />
