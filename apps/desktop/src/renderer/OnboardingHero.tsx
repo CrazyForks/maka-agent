@@ -823,7 +823,6 @@ function SkipButton(props: { onSkip: () => Promise<void> | void; label?: string 
     <Button
       type="button"
       variant="quiet"
-      size="sm"
       onClick={onClick}
       disabled={pending}
       aria-busy={pending ? 'true' : undefined}
