@@ -84,7 +84,7 @@
   }
   .maka-chat-header-status[data-tone="muted"] {
     background: var(--foreground-5);
-    color: var(--foreground-60);
+    color: var(--foreground-secondary);
     border-color: var(--border);
   }
 
@@ -129,7 +129,7 @@
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-pill);
     background: var(--background);
-    color: var(--foreground-70);
+    color: var(--foreground-secondary);
   box-shadow: var(--shadow-medium);
   opacity: 1;
   transition:
@@ -198,7 +198,7 @@
 
   .maka-error-copy p {
     margin: 0;
-    color: var(--foreground-70);
+    color: var(--foreground-secondary);
     font-size: var(--font-size-ui);
     line-height: 1.45;
     max-width: 56ch;
@@ -211,7 +211,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-surface);
     background: var(--foreground-3);
-    color: var(--foreground-80);
+    color: var(--foreground-secondary);
     overflow: auto;
     font-family: var(--font-mono);
     font-size: var(--font-size-caption);
@@ -389,7 +389,7 @@
 
 .maka-toast-icon {
   margin-top: var(--space-0-5);
-  color: var(--foreground-60);
+  color: var(--foreground-secondary);
 }
 .maka-toast[data-variant="success"] .maka-toast-icon { color: var(--success-text); }
 .maka-toast[data-variant="warning"] .maka-toast-icon { color: var(--info-text); }
@@ -410,7 +410,7 @@
 }
 
 .maka-toast-copy small {
-  color: var(--foreground-60);
+  color: var(--foreground-secondary);
   font-size: var(--font-size-caption);
   line-height: 1.4;
   text-wrap: pretty;
@@ -446,7 +446,7 @@
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
   transition:
     background-color var(--duration-base) var(--ease-out-strong),
     color var(--duration-base) var(--ease-out-strong),
@@ -499,7 +499,7 @@
   align-items: center;
   gap: var(--space-1);
   margin-bottom: var(--space-1);
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
   font-size: var(--font-size-caption);
   font-weight: 600;
   letter-spacing: 0;
@@ -515,7 +515,7 @@
 
 .maka-help-section h3 {
   margin: 0 0 var(--space-1);
-  color: var(--foreground-70);
+  color: var(--foreground-secondary);
   font-size: var(--font-size-caption);
   font-weight: 600;
   letter-spacing: 0;
@@ -534,7 +534,7 @@
 }
 
 .maka-help-section dt {
-  color: var(--foreground-80);
+  color: var(--foreground-secondary);
   font-size: var(--font-size-caption);
   line-height: 1.45;
 }
@@ -554,7 +554,7 @@
 }
 
 .maka-help-plus {
-  color: var(--foreground-40);
+  color: var(--muted-foreground);
   font-size: var(--font-size-caption);
 }
 
@@ -612,14 +612,14 @@
 }
 
 .maka-palette-input::placeholder {
-  color: var(--foreground-40);
+  color: var(--muted-foreground);
 }
 
 .maka-palette-input-hint {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
   font-size: var(--font-size-caption);
   white-space: nowrap;
 }
@@ -642,7 +642,7 @@
   border: 1px solid var(--border);
   background: var(--foreground-5);
   box-shadow: inset 0 1px 0 oklch(from var(--background) l c h / 0.45);
-  color: var(--foreground-60);
+  color: var(--foreground-secondary);
   font-family: var(--font-mono);
   font-size: var(--font-size-caption);
   font-weight: 600;
@@ -671,7 +671,7 @@
 
 .maka-palette-group-label {
   padding: var(--space-1) var(--space-2) var(--space-0-5);
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
   font-size: var(--font-size-caption);
   font-weight: 600;
   letter-spacing: 0;
@@ -735,7 +735,7 @@
 }
 
 .maka-palette-item[data-disabled="true"] {
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
   cursor: default;
   opacity: 0.72;
 }
@@ -750,7 +750,7 @@
   width: 18px;
   height: 18px;
   border-radius: var(--radius-control);
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
   transition:
     background-color 140ms var(--ease-out-strong),
     color 140ms var(--ease-out-strong);
@@ -771,7 +771,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
   font-size: var(--font-size-caption);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -782,7 +782,7 @@
 }
 
 .maka-palette-empty {
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
 }
 
 .maka-palette-footer {
@@ -792,7 +792,7 @@
   padding: var(--space-0-5) var(--space-2);
   border-top: 1px solid var(--border);
   background: var(--foreground-2);
-  color: var(--foreground-50);
+  color: var(--muted-foreground);
   font-size: var(--font-size-caption);
 }
 
