@@ -707,7 +707,7 @@ export function AppShell() {
   // the state-routed OnboardingHero mounts.
   const isOnboardingLoading = sessions.length === 0 && onboardingState === undefined && !onboardingSettled;
   const showOnboardingHero =
-    !onboardingSettled && onboardingState !== undefined && onboardingState.kind !== 'ready_with_history';
+    sessions.length === 0 && !onboardingSettled && onboardingState !== undefined && onboardingState.kind !== 'ready_with_history';
   const onboardingComposerHidden = isOnboardingLoading || (showOnboardingHero && onboardingState !== undefined);
   const [sessionListWidth, setSessionListWidth] = useState(() => readSessionListWidth());
   const [sessionListCollapsed, setSessionListCollapsed] = useState(() => readSessionListCollapsed());

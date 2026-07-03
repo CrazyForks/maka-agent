@@ -389,7 +389,7 @@ function NeedsDefaultConnectionHero(props: {
           }
           : undefined
       }
-      skipCta={props.onSkip ? { label: '跳过，先逛逛', onClick: () => void props.onSkip?.() } : undefined}
+      onSkip={props.onSkip}
     />
   );
 }
@@ -435,7 +435,7 @@ function NeedsConnectionCredentialsHero(props: {
           }
           : undefined
       }
-      skipCta={props.onSkip ? { label: '跳过，先逛逛', onClick: () => void props.onSkip?.() } : undefined}
+      onSkip={props.onSkip}
     />
   );
 }
@@ -481,7 +481,7 @@ function NeedsDefaultModelHero(props: {
           }
           : undefined
       }
-      skipCta={props.onSkip ? { label: '跳过，先逛逛', onClick: () => void props.onSkip?.() } : undefined}
+      onSkip={props.onSkip}
     />
   );
 }
@@ -522,7 +522,7 @@ function BlockedHero(props: {
           }
           : undefined
       }
-      skipCta={props.onSkip ? { label: '跳过，先逛逛', onClick: () => void props.onSkip?.() } : undefined}
+      onSkip={props.onSkip}
       // PR-UI-LAYOUT-25: 'destructive' (vs the previous 'warning') so
       // the user sees "all connections unhealthy" at full gravity —
       // distinct from "missing default model" or "needs reauth" which
@@ -850,10 +850,10 @@ interface SetupHeroProps {
   secondaryCta?: { label: string; onClick: () => void; disabled?: boolean; busy?: boolean };
   /**
    * Optional skip affordance for the `needs_*` / `blocked` branches.
-   * Renders as a quiet text-style button after the secondary CTA.
-   * Lets the user enter the app without configuring a provider.
+   * Renders as a ghost button after the secondary CTA. Lets the user
+   * enter the app without configuring a provider.
    */
-  skipCta?: { label: string; onClick: () => void };
+  onSkip?: () => Promise<void> | void;
   /**
    * PR-UI-LAYOUT-25 (@yuejing 2026-05-22): extended from `'warning'`
    * only to also accept `'destructive'` so a blocked-state hero
@@ -899,7 +899,7 @@ function SetupHero(props: SetupHeroProps) {
             {props.secondaryCta.label}
           </Button>
         )}
-        {props.skipCta && <SkipButton onSkip={props.skipCta.onClick} label={props.skipCta.label} />}
+        {props.onSkip && <SkipButton onSkip={props.onSkip} />}
       </footer>
     </section>
   );
