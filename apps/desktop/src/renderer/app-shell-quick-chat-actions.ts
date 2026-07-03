@@ -54,6 +54,7 @@ export function createAppShellQuickChatActions(deps: {
     try {
       const result = await window.maka.quickChat.start({ prompt, mode });
       if (result.ok) {
+        await window.maka.onboarding.setMilestone('initial_onboarding', 'completed');
         if (isShellSurfaceOwnerActive(owner)) {
           openSessionInChat(result.sessionId);
         }
