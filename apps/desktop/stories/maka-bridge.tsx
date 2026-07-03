@@ -8,11 +8,16 @@ export function withScopedMakaBridge(bridge: MakaGlobal): Decorator {
   return (Story) => {
     const target = window as unknown as MakaWindow;
     useLayoutEffect(() => {
+      const hadPrevious = 'maka' in target;
       const previous = target.maka;
       target.maka = bridge;
       return () => {
         if (target.maka === bridge) {
-          target.maka = previous;
+          if (hadPrevious) {
+            target.maka = previous;
+          } else {
+            delete target.maka;
+          }
         }
       };
     }, []);
