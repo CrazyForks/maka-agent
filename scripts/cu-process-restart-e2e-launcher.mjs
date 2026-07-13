@@ -245,7 +245,8 @@ function startFocusMonitor() {
         readyResolve({
           frontmostPID: Number(fields[1]),
           pointer: { x: Number(fields[2]), y: Number(fields[3]) },
-          bundleIdentifier: fields[4],
+          physicalInputAgeSeconds: Number(fields[4]),
+          bundleIdentifier: fields[5],
         });
       } else if (kind === 'CHANGE' || kind === 'ERROR') {
         fail(new Error(fields.join('\t') || line));
