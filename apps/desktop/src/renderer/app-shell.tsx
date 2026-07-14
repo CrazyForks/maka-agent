@@ -14,6 +14,7 @@ import {
   ChatView,
   Composer,
   PermissionPrompt,
+  UserQuestionPrompt,
   DailyReviewPage,
   type ComposerHandle,
   type MakaUriDest,
@@ -24,7 +25,7 @@ import {
   type SessionViewMode,
   type TurnFooterActionMeta,
   useToast,
-  activePermissionFor,
+  activeInteractionFor,
 } from '@maka/ui';
 import { useKeyboardHelp } from './keyboard-help';
 import { useCommandPalette } from './command-palette';
@@ -157,7 +158,7 @@ export function AppShell({
     setStopPendingBySession,
     setLiveTurnBySession,
     setShellRunUpdatesBySession,
-    setPermissionBySession,
+    setInteractionBySession,
     setSessionEventHealthBySession,
     setPendingPermissionModeBySession,
     setPendingSessionModelBySession,
@@ -182,7 +183,7 @@ export function AppShell({
     stopPendingBySession,
     liveTurnBySession,
     shellRunUpdatesBySession,
-    permissionBySession,
+    interactionBySession,
     sessionEventHealthBySession,
     pendingPermissionModeBySession,
     pendingSessionModelBySession,
@@ -286,7 +287,9 @@ export function AppShell({
     composerRef,
     toastApi,
   });
-  const activePermission = activePermissionFor(permissionBySession, activeId);
+  const activeInteraction = activeInteractionFor(interactionBySession, activeId);
+  const activePermission = activeInteraction?.type === 'permission_request' ? activeInteraction : undefined;
+  const activeQuestion = activeInteraction?.type === 'user_question_request' ? activeInteraction : undefined;
   const activeSession = sessions.find((session) => session.id === activeId);
   // Live-turn projection of the active session: streaming/thinking slices, the
   // sidebar pulse set, the in-flight tool signal, and the #646 turn-wait cues
@@ -764,7 +767,7 @@ export function AppShell({
     setLiveBrowserSessionIds,
     setLiveTurnBySession,
     setNavSelection,
-    setPermissionBySession,
+    setInteractionBySession,
     setSearchModalOpen,
     setSessionListCollapsed,
     setThemePref,
@@ -773,6 +776,7 @@ export function AppShell({
   const {
     send,
     respondToPermission,
+    respondToUserQuestion,
     refreshMessages,
     retryMessages,
   } = createAppShellChatActions({
@@ -791,6 +795,7 @@ export function AppShell({
     setMessages,
     setNavSelection,
     setLiveTurnBySession,
+    setInteractionBySession,
     showModelSetupToast,
     toastApi,
     upsertSessionSummary,
@@ -837,7 +842,7 @@ export function AppShell({
     refreshMessages,
     refreshSessions,
     setLiveTurnBySession,
-    setPermissionBySession,
+    setInteractionBySession,
     showModelSetupToast,
     toastApi,
     notifyRunEnded: ({ kind, sessionId, body }) => {
@@ -944,7 +949,7 @@ export function AppShell({
   useShellRunUpdates({ activeId, setShellRunUpdatesBySession });
   useSessionEventHealthPolling({
     activeId,
-    activePermission,
+    activeInteraction,
     activeSession,
     activeStreamingLive,
     hasInFlightLiveTools,
@@ -1419,10 +1424,18 @@ export function AppShell({
                     stopPending={activeId ? stopPendingBySession[activeId] === true : false}
                   />
                 )}
+                {activeQuestion && (
+                  <UserQuestionPrompt
+                    request={activeQuestion}
+                    onRespond={respondToUserQuestion}
+                    onStop={stop}
+                    stopPending={activeId ? stopPendingBySession[activeId] === true : false}
+                  />
+                )}
               </div>
               <Composer
                 ref={composerRef}
-                hidden={navSelection.section !== 'sessions' || onboardingComposerHidden || Boolean(activePermission)}
+                hidden={navSelection.section !== 'sessions' || onboardingComposerHidden || Boolean(activeInteraction)}
                 draftKey={activeId ?? 'new-session'}
                 // #646: Stop must be available for the WHOLE turn — the moment the
                 // user most wants to interrupt is a long wait with nothing on
