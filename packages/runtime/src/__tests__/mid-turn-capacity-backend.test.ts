@@ -16,6 +16,7 @@ import { PermissionEngine } from '../permission-engine.js';
 import { applyRuntimeEventContextBudget, evaluateHistoryCompactCheckpointReplay } from '../context-budget.js';
 import type { HistoryCompactCheckpoint } from '../history-compact-checkpoint.js';
 import type { ContextBudgetDiagnostic } from '@maka/core/usage-stats/types';
+import { HistoryCompactSummarizerError } from '../history-compact-error.js';
 
 const RAW_SPAN_ONE = 'RAW_SPAN_ONE_'.repeat(24);
 const RAW_SPAN_TWO = 'RAW_SPAN_TWO_'.repeat(160);
@@ -558,6 +559,20 @@ function defineMidTurnSuite(consumer: ConsumerMode): void {
     assert.equal(usageEvent?.contextBudget?.historyCompactWriteFailures, undefined);
   });
 
+  test('preserves the typed summarizer failure in mid-turn diagnostics', async () => {
+    const fixture = buildFixture({
+      summarize: () => { throw new HistoryCompactSummarizerError('provider_error'); },
+    });
+    await runFixtureTurn(fixture, consumer);
+
+    assert.equal(fixture.recorded.length, 0);
+    const failedOpen = compactionDecisions(fixture).find(
+      (decision) => decision.phase === 'mid_turn' && decision.decision === 'failedOpen',
+    );
+    assert.equal(failedOpen?.failOpenReason, 'provider_error');
+    assert.equal(failedOpen?.skippedReasonCounts?.provider_error, 1);
+  });
+
   test('fails open with write_failed diagnostics when the checkpoint write fails under the window', async () => {
     const fixture = buildFixture({ record: () => { throw new Error('disk full'); } });
     await runFixtureTurn(fixture, consumer);
@@ -910,35 +925,20 @@ function defineMidTurnSuite(consumer: ConsumerMode): void {
     assert.equal(fixture.recorded.length, 0);
   });
 
-  test('a checkpoint the next replay would reject is never persisted (review round-5 finding 1)', async () => {
-    // Review round-5 repro: maxSummaryEstimatedTokens defaults to 1024, and a
-    // 5000-char summary yields a ~1133-token checkpoint envelope. The fold
-    // clearly SHRINKS the giant covered span, so materialize+smaller alone
-    // accept and persist it — but the recovery path's single replay gate
-    // (max_block_tokens) rejects it next round and re-projects the covered
-    // raw span, violating the never-re-injected invariant. Validation must
-    // therefore include replay admissibility, through the same gate function
-    // with the same policy — one acceptance standard, not two.
+  test('persists a complete summary above the legacy block cap when the full replay shrinks and fits', async () => {
     const fixture = buildFixture({
       giantPriors: true,
       summarize: () => 'S'.repeat(5_000),
     });
     await runFixtureTurn(fixture, consumer);
 
-    // The inadmissible checkpoint was never persisted...
-    assert.equal(fixture.recorded.length, 0);
-    // ...the step failed open on the raw projection...
+    assert.equal(fixture.recorded.length, 1);
     assert.equal(fixture.model.doStreamCalls.length, 3);
     const complete = fixture.events.find((event) => event.type === 'complete');
     assert.equal(complete?.type === 'complete' ? complete.stopReason : undefined, 'end_turn');
     const thirdPrompt = promptJson(fixture, 2);
-    assert.equal(thirdPrompt.includes('PRIOR_FACT'), true);
-    assert.equal(thirdPrompt.includes('maka_history_compact_checkpoint'), false);
-    // ...with the precise gate reason in the diagnostics.
-    const failedOpen = compactionDecisions(fixture).find(
-      (decision) => decision.phase === 'mid_turn' && decision.decision === 'failedOpen',
-    );
-    assert.equal(failedOpen?.failOpenReason, 'replay_rejected_max_block_tokens');
+    assert.equal(thirdPrompt.includes('PRIOR_FACT'), false);
+    assert.equal(thirdPrompt.includes('maka_history_compact_checkpoint'), true);
   });
 
   test('the cold-start estimate covers the FULL provider input including the system prompt (review round-5 finding 2)', async () => {

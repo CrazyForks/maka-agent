@@ -186,10 +186,12 @@ import {
   type ToolResultArchiveReader,
   type ToolResultArchiveRef,
 } from './context-budget.js';
+import { HistoryCompactSummarizerError } from './history-compact-error.js';
 import {
   buildHistoryCompactCheckpoint,
   historyCompactCheckpointToRuntimeEvent,
   matchHistoryCompactCheckpointPrefix,
+  projectHistoryCompactCheckpointReplay,
   type HistoryCompactCheckpoint,
 } from './history-compact-checkpoint.js';
 import { resolveSelectedModelContextWindow } from './context-budget-policy.js';
@@ -668,9 +670,14 @@ export type HistoryCompactLoader = (
 export type HistoryCompactWriter = (
   input: HistoryCompactWriteInput,
 ) => Promise<HistoryCompactWriteResult | void> | HistoryCompactWriteResult | void;
-export interface HistoryCompactSummaryInput extends HistoryCompactWriteInput {
+export interface HistoryCompactSummaryInput {
+  sessionId: string;
+  turnId: string;
+  source: { foldedRuntimeEvents: RuntimeEvent[] };
   previousCheckpoint?: HistoryCompactCheckpoint;
   newlyFoldedRuntimeEvents?: RuntimeEvent[];
+  requestShapeHashBefore?: string;
+  abortSignal?: AbortSignal;
 }
 export type HistoryCompactSummarizer = (
   input: HistoryCompactSummaryInput,
@@ -965,7 +972,9 @@ export class AiSdkBackend implements AgentBackend {
       if (!policy) return {};
 
       const contextBudget = policy;
-      const budgeted = applyRuntimeEventContextBudget(runtimeContext, contextBudget);
+      const budgeted = applyRuntimeEventContextBudget(runtimeContext, contextBudget, {
+        historyCompactProtocol: this.hasHistoryCompactCheckpointWriter() ? 'checkpoint_v2' : 'legacy_v1',
+      });
       let contextBudgetDiagnostic = budgeted?.diagnostic;
 
       if (
@@ -1071,6 +1080,10 @@ export class AiSdkBackend implements AgentBackend {
       this.input.writeHistoryCompact
       || (this.input.summarizeHistoryCompact && this.input.recordHistoryCompactCheckpoint),
     );
+  }
+
+  private hasHistoryCompactCheckpointWriter(): boolean {
+    return Boolean(this.input.summarizeHistoryCompact && this.input.recordHistoryCompactCheckpoint);
   }
 
   // --------------------------------------------------------------------------
@@ -2136,7 +2149,11 @@ export class AiSdkBackend implements AgentBackend {
     const priorRuntimeContext = input.runtimeContext.filter((event) => event.turnId !== input.turnId);
     const preparedContextBudget = await this.prepareContextBudgetPolicy(priorRuntimeContext);
     const contextBudget = preparedContextBudget.policy;
-    const budgeted = applyRuntimeEventContextBudget(priorRuntimeContext, contextBudget);
+    const budgeted = applyRuntimeEventContextBudget(priorRuntimeContext, contextBudget, {
+      historyCompactProtocol: contextBudget?.historyCompact?.checkpoint || this.hasHistoryCompactCheckpointWriter()
+        ? 'checkpoint_v2'
+        : 'legacy_v1',
+    });
     let runtimeContext = budgeted?.events
       ?? priorRuntimeContext;
     let contextBudgetDiagnostic = budgeted?.diagnostic;
@@ -2769,6 +2786,7 @@ export class AiSdkBackend implements AgentBackend {
             boundaryKind: 'historyCompact',
             reason: 'context_limit',
             failOpenReason,
+            skippedReasonCounts: { [failOpenReason]: 1 },
           }),
         });
         return keepProjection();
@@ -2882,9 +2900,6 @@ export class AiSdkBackend implements AgentBackend {
     const midTurn = compactPolicy.midTurn!;
     const charsPerToken = policy.charsPerToken ?? 4;
     const reserveTokens = midTurn.reserveTokens ?? 16_384;
-    const maxSummaryEstimatedTokens = compactPolicy.maxBlockEstimatedTokens
-      ?? compactPolicy.maxSummaryEstimatedTokens
-      ?? 1_024;
 
     // Coverage pool = the durable run ledger, read through the injected
     // seam. Covered events are persisted by construction (no crash window
@@ -2947,28 +2962,12 @@ export class AiSdkBackend implements AgentBackend {
       charsPerToken,
       now: this.now(),
       ...(compactPolicy.highWaterName !== undefined ? { highWaterName: compactPolicy.highWaterName } : {}),
-      maxSummaryEstimatedTokens,
       ...(state.previousCheckpoint ? { previousCheckpoint: state.previousCheckpoint } : {}),
       summarize: async ({ coveredRuntimeEvents, newlyFoldedRuntimeEvents, previousCheckpoint }) => {
-        const draftBlock = buildHistoryCompactBlockFromSummary({
-          sessionId: this.sessionId,
-          foldedRuntimeEvents: coveredRuntimeEvents,
-          summary: 'Mid-turn capacity compaction draft.',
-          ...(compactPolicy.highWaterName !== undefined ? { highWaterName: compactPolicy.highWaterName } : {}),
-          maxSummaryEstimatedTokens,
-          charsPerToken,
-          now: this.now(),
-        });
         return await Promise.resolve(summarizer({
           sessionId: this.sessionId,
           turnId,
-          source: { draftBlock, foldedRuntimeEvents: [...coveredRuntimeEvents] },
-          limits: {
-            maxBlocks: 1,
-            maxBlockEstimatedTokens: maxSummaryEstimatedTokens,
-            maxEstimatedTokens: compactPolicy.maxEstimatedTokens ?? 2_048,
-            charsPerToken,
-          },
+          source: { foldedRuntimeEvents: [...coveredRuntimeEvents] },
           ...(previousCheckpoint ? { previousCheckpoint } : {}),
           newlyFoldedRuntimeEvents: [...newlyFoldedRuntimeEvents],
           ...(this.abortController?.signal ? { abortSignal: this.abortController.signal } : {}),
@@ -2978,7 +2977,11 @@ export class AiSdkBackend implements AgentBackend {
 
     if (plan.decision === 'skip') return { decision: 'skip' };
     if (plan.decision === 'fail_open') {
-      return { decision: 'fail', detail: plan.reason, diagnosticReason: plan.reason };
+      return {
+        decision: 'fail',
+        detail: plan.reason,
+        diagnosticReason: plan.diagnosticReason ?? plan.reason,
+      };
     }
 
     // Lifecycle order is validate → persist → apply, where validate =
@@ -3027,11 +3030,9 @@ export class AiSdkBackend implements AgentBackend {
     if (replacedPayloadChars >= input.referencePayloadChars) {
       return { decision: 'fail', detail: 'summarizer_failed', diagnosticReason: 'replacement_not_smaller' };
     }
-    // Replay admissibility, through the SAME single gate the recovery path
-    // runs (max block / max total / prefix budget) with the same policy —
-    // one acceptance standard, not two. A checkpoint accepted here but
-    // rejected at replay would still become the session's latest checkpoint
-    // and poison recovery.
+    // Replay admissibility uses the same complete-prefix capacity gate as
+    // recovery. Actual payload shrinkage was already checked above because
+    // only this owner can measure the fully materialized provider request.
     const replayFit = evaluateHistoryCompactCheckpointReplay(
       plan.checkpoint,
       plan.replacementEvents.slice(1),
@@ -3040,7 +3041,7 @@ export class AiSdkBackend implements AgentBackend {
     if (!replayFit.fits) {
       return {
         decision: 'fail',
-        detail: replayFit.reason === 'prefix_over_budget' ? 'head_anchor_exceeds_capacity' : 'summarizer_failed',
+        detail: 'head_anchor_exceeds_capacity',
         diagnosticReason: `replay_rejected_${replayFit.reason}`,
       };
     }
@@ -3142,7 +3143,12 @@ export class AiSdkBackend implements AgentBackend {
           phase: 'mid_turn',
           boundaryKind: 'historyCompact',
           reason: 'overflow',
-          ...(outcome.decision === 'fail' ? { failOpenReason: outcome.diagnosticReason } : {}),
+          ...(outcome.decision === 'fail'
+            ? {
+                failOpenReason: outcome.diagnosticReason,
+                skippedReasonCounts: { [outcome.diagnosticReason]: 1 },
+              }
+            : {}),
         }),
       });
       return undefined;
@@ -3599,6 +3605,7 @@ export class AiSdkBackend implements AgentBackend {
         previousCheckpoint,
         retainedRuntimeEvents,
         input.contextBudget,
+        { sourceReplayEvents: [...foldedRuntimeEvents, ...retainedRuntimeEvents] },
       ).fits;
     if (previousCheckpoint && newlyFoldedRuntimeEvents.length === 0 && previousCheckpointFitsCurrentLimits) {
       return {
@@ -3631,16 +3638,7 @@ export class AiSdkBackend implements AgentBackend {
       const summary = await Promise.resolve(summarizer({
         sessionId: this.sessionId,
         turnId: input.turnId,
-        source: { draftBlock: input.draftBlock, foldedRuntimeEvents },
-        limits: {
-          maxBlocks: 1,
-          maxBlockEstimatedTokens:
-            input.contextBudget.historyCompact?.maxBlockEstimatedTokens
-            ?? input.contextBudget.historyCompact?.maxSummaryEstimatedTokens
-            ?? 1_024,
-          maxEstimatedTokens: input.contextBudget.historyCompact?.maxEstimatedTokens ?? 2_048,
-          charsPerToken: input.contextBudget.charsPerToken ?? 4,
-        },
+        source: { foldedRuntimeEvents },
         ...(previousCheckpoint ? { previousCheckpoint } : {}),
         newlyFoldedRuntimeEvents,
         requestShapeHashBefore: this.priorRequestShape?.requestShapeHash,
@@ -3668,18 +3666,34 @@ export class AiSdkBackend implements AgentBackend {
         summary,
         highWaterName: input.draftBlock.highWaterName,
         highWaterSeq: input.draftBlock.highWaterSeq,
-        maxSummaryEstimatedTokens: input.contextBudget.historyCompact?.maxBlockEstimatedTokens
-          ?? input.contextBudget.historyCompact?.maxSummaryEstimatedTokens,
         ...(previousCheckpoint ? { previousCheckpointId: previousCheckpoint.checkpointId } : {}),
         charsPerToken: input.contextBudget.charsPerToken,
         now: this.now(),
       });
-      if (!evaluateHistoryCompactCheckpointReplay(
+      const replayFit = evaluateHistoryCompactCheckpointReplay(
         checkpoint,
         retainedRuntimeEvents,
         input.contextBudget,
-      ).fits) {
-        throw new Error('History compact checkpoint exceeds current replay limits');
+        { sourceReplayEvents: [...foldedRuntimeEvents, ...retainedRuntimeEvents] },
+      );
+      const rejectedReason = !replayFit.fits
+        ? replayFit.reason
+        : undefined;
+      if (rejectedReason) {
+        return {
+          ...(previousCheckpoint ? { fallbackCheckpoint: previousCheckpoint } : {}),
+          diagnosticPatch: {
+            historyCompactEnabled: true,
+            historyCompactMode: 'read_write',
+            historyCompactWritesAttempted: 1,
+            historyCompactWriteFailures: 1,
+            historyCompactWriteSkippedReasonCounts: { [rejectedReason]: 1 },
+            ...compactionDecisionDiagnosticPatch({
+              stage: 'priorReplay', sourceKind: 'runtimeEvents', decision: 'failedOpen',
+              boundaryKind: 'historyCompact', failOpenReason: rejectedReason,
+            }),
+          },
+        };
       }
       await Promise.resolve(recorder(checkpoint, input.turnId));
       return {
@@ -3698,7 +3712,10 @@ export class AiSdkBackend implements AgentBackend {
           highWaterReason: 'history_compact',
         },
       };
-    } catch {
+    } catch (error) {
+      const failureReason = error instanceof HistoryCompactSummarizerError
+        ? error.reason
+        : 'write_failed';
       return {
         ...(previousCheckpoint ? { fallbackCheckpoint: previousCheckpoint } : {}),
         diagnosticPatch: {
@@ -3706,9 +3723,10 @@ export class AiSdkBackend implements AgentBackend {
           historyCompactMode: 'read_write',
           historyCompactWritesAttempted: 1,
           historyCompactWriteFailures: 1,
+          historyCompactWriteSkippedReasonCounts: { [failureReason]: 1 },
           ...compactionDecisionDiagnosticPatch({
             stage: 'priorReplay', sourceKind: 'runtimeEvents', decision: 'failedOpen',
-            boundaryKind: 'historyCompact', failOpenReason: 'write_failed',
+            boundaryKind: 'historyCompact', failOpenReason: failureReason,
           }),
         },
       };
@@ -4354,9 +4372,9 @@ function buildHistoryCompactCheckpointFailOpenContext(
       byTurn.set(event.turnId, [event]);
     }
   }
-  const checkpointEvent = historyCompactCheckpointToRuntimeEvent(checkpoint);
   const maxTokens = policy.maxHistoryEstimatedTokens ?? Number.POSITIVE_INFINITY;
-  let selectedTokens = estimateRuntimeEventsTokens([checkpointEvent], charsPerToken);
+  const replayPrefix = projectHistoryCompactCheckpointReplay(checkpoint, match.coveredRuntimeEvents, []);
+  let selectedTokens = estimateRuntimeEventsTokens(replayPrefix, charsPerToken);
   const selectedGroups: RuntimeEvent[][] = [];
   for (let index = turnOrder.length - 1; index >= 0; index -= 1) {
     const group = byTurn.get(turnOrder[index]!) ?? [];
@@ -4366,8 +4384,15 @@ function buildHistoryCompactCheckpointFailOpenContext(
     selectedTokens += groupTokens;
   }
   const replayTail = selectedGroups.flat();
-  return evaluateHistoryCompactCheckpointReplay(checkpoint, replayTail, policy).fits
-    ? [checkpointEvent, ...replayTail]
+  const replayEvents = projectHistoryCompactCheckpointReplay(
+    checkpoint,
+    match.coveredRuntimeEvents,
+    replayTail,
+  );
+  return evaluateHistoryCompactCheckpointReplay(checkpoint, replayEvents.slice(1), policy, {
+    sourceReplayEvents: [...match.coveredRuntimeEvents, ...replayTail],
+  }).fits
+    ? replayEvents
     : [...retainedCandidates];
 }
 

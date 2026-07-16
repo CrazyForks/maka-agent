@@ -1128,7 +1128,7 @@ describe('context-budget history compact', () => {
     assert.equal(result.diagnostic.historyCompactedTurns, 4);
   });
 
-  test('retains additional recent turns while they fit under the history compact tail cap', () => {
+  test('preserves the legacy V1 token-tail selection contract', () => {
     const events = [
       textEvent('old-1', 'turn-1', 'old context '.repeat(40)),
       textEvent('tail-2', 'turn-2', 'tail two'),
@@ -1159,7 +1159,36 @@ describe('context-budget history compact', () => {
     assert.equal(result.diagnostic.historyCompactedTurns, 1);
   });
 
-  test('keeps the latest complete tool call/result pair when one turn exceeds the history compact tail cap', () => {
+  test('V2 checkpoint compaction retains only the latest complete turn', () => {
+    const events = [
+      textEvent('old-1', 'turn-1', 'old context '.repeat(40)),
+      textEvent('tail-2', 'turn-2', 'tail two'),
+      textEvent('tail-3', 'turn-3', 'tail three'),
+      textEvent('tail-4', 'turn-4', 'tail four'),
+      textEvent('tail-5', 'turn-5', 'tail five'),
+    ];
+
+    const result = applyRuntimeEventContextBudget(events, {
+      maxHistoryEstimatedTokens: 2000,
+      minRecentTurns: 2,
+      charsPerToken: 1,
+      historyCompact: {
+        enabled: true,
+        highWaterRatio: 0.1,
+        minRecentTurns: 2,
+        tailEstimatedTokens: 100,
+        maxSummaryEstimatedTokens: 120,
+      },
+    }, { historyCompactProtocol: 'checkpoint_v2' });
+
+    assert.ok(result);
+    assert.deepEqual(result.events.filter((event) => !event.id.startsWith('history-compact:')).map((event) => event.id), [
+      'tail-5',
+    ]);
+    assert.equal(result.diagnostic.historyCompactedTurns, 4);
+  });
+
+  test('keeps the complete latest turn as the continuation seam', () => {
     const events = [
       textEvent('old-1', 'turn-1', 'old context '.repeat(30)),
       toolCall('latest-call-1', 'turn-2', 'tool-1'),
@@ -1179,15 +1208,15 @@ describe('context-budget history compact', () => {
         tailEstimatedTokens: 10,
         maxSummaryEstimatedTokens: 120,
       },
-    });
+    }, { historyCompactProtocol: 'checkpoint_v2' });
 
     assert.ok(result);
     assert.equal(result.events.some((event) => event.id === 'old-1'), false);
-    assert.equal(result.events.some((event) => event.id === 'latest-call-1'), false);
-    assert.equal(result.events.some((event) => event.id === 'latest-result-1'), false);
+    assert.equal(result.events.some((event) => event.id === 'latest-call-1'), true);
+    assert.equal(result.events.some((event) => event.id === 'latest-result-1'), true);
     assert.equal(result.events.some((event) => event.id === 'latest-call-2'), true);
     assert.equal(result.events.some((event) => event.id === 'latest-result-2'), true);
-    assert.equal(result.diagnostic.historyCompactedTurns, 2);
+    assert.equal(result.diagnostic.historyCompactedTurns, 1);
   });
 
   test('falls back to normal pruning when a generated compact replay exceeds budget', () => {
