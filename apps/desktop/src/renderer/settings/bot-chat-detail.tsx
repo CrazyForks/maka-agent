@@ -59,8 +59,8 @@ export function BotChatChannelDetail(props: {
   provider: BotProvider;
   /**
    * #1233 deferral: when true (only under the settings-bots-onboarding
-   * visual-smoke fixture), open the scan-login modal at mount so the QR
-   * waiting state captures deterministically. Real users never set this.
+   * e2e-fixture fixture), open the scan-login modal at mount so the QR
+   * waiting state renders deterministically. Real users never set this.
    */
   autoOpenScanLogin?: boolean;
   channel: BotChannelSettings;

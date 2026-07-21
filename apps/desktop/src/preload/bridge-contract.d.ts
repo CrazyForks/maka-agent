@@ -32,7 +32,7 @@ import type {
   UpdateAppSettingsResult,
   UsageRange,
   UsageStats,
-  VisualSmokeState,
+  E2eFixtureState,
   ArtifactBinaryReadResult,
   ArtifactChangedEvent,
   ArtifactRecord,
@@ -634,8 +634,8 @@ export interface MakaBridge {
       | { ok: false; reason: 'no_project' | 'search_failed' }
     >;
   };
-  visualSmoke: {
-    getState(): Promise<VisualSmokeState | null>;
+  e2eFixture: {
+    getState(): Promise<E2eFixtureState | null>;
   };
   artifacts: {
     list(sessionId: string, opts?: { includeDeleted?: boolean }): Promise<ArtifactRecord[]>;

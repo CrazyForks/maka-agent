@@ -1,9 +1,9 @@
 /**
  * Locks the observable signals for the
  * turn-control-history fixture, at the helper layer (no DOM /
- * Electron). The deterministic fixture verifies the same matrix against
- * rendered screenshots; this test exists so a regression in the
- * helpers gets caught before screenshot CI runs.
+ * Electron). The deterministic fixture renders the same matrix; this
+ * test exists so a regression in the helpers gets caught early at the
+ * pure-helper layer, before any DOM/Electron run.
  *
  *  S1 Failed banner copy comes from `describeTurnErrorClass` — Chinese
  *     generalized phrasing, never the raw enum.
@@ -11,7 +11,7 @@
  *  S3 Lineage badges produce stable Chinese copy with direction tags.
  *  S4 Branch banner only renders when parent is in the sessions list
  *     (covered separately in branch-banner.test.ts; cross-linked here).
- *  S5 Visual-smoke flag is enough to collapse smooth scroll to auto
+ *  S5 The e2e-fixture flag is enough to collapse smooth scroll to auto
  *     (covered separately in scroll-motion-policy.test.ts).
  *  S6 No raw enum identifier from `errorClass` / `SessionBlockedReason`
  *     leaks into the user-facing strings.
@@ -87,7 +87,7 @@ describe('turn-control-history matrix', () => {
 
     it('the fixture seed uses `timeout` which maps to "请求超时"', () => {
       // Documents the exact seed → label binding so a reviewer reading
-      // the screenshot knows what copy to expect.
+      // the fixture knows what copy to expect.
       assert.match(describeTurnErrorClass('timeout'), /请求超时/);
     });
   });
@@ -103,7 +103,7 @@ describe('turn-control-history matrix', () => {
     // The inline "(已中断)" marker for an aborted turn (not session)
     // is rendered directly in components.tsx; we don't unit-test the
     // copy here to avoid duplicating the JSX literal. Visual placement
-    // is covered by the deterministic screenshot fixture.
+    // lives in that component, not this helper.
   });
 
   describe('S6 no raw enum leaks (regression-proof)', () => {
@@ -229,14 +229,14 @@ describe('turn-control-history matrix', () => {
       // helper level: an active session with parentSessionId set, but
       // the parent is NOT in the sessions list.
       const orphanActive = {
-        id: 'visual-smoke-turn-control-branch-orphan',
+        id: 'e2e-fixture-turn-control-branch-orphan',
         name: '父会话已删除的分支',
-        parentSessionId: 'visual-smoke-turn-control-deleted-parent',
+        parentSessionId: 'e2e-fixture-turn-control-deleted-parent',
       };
       const visibleSessions = [
         orphanActive,
-        { id: 'visual-smoke-turn-control-primary', name: '回合控制示例（原会话）' },
-        { id: 'visual-smoke-turn-control-branch-visible', name: '从原会话分出的探索', parentSessionId: 'visual-smoke-turn-control-primary' },
+        { id: 'e2e-fixture-turn-control-primary', name: '回合控制示例（原会话）' },
+        { id: 'e2e-fixture-turn-control-branch-visible', name: '从原会话分出的探索', parentSessionId: 'e2e-fixture-turn-control-primary' },
       ];
       const banner = deriveBranchBanner(orphanActive, visibleSessions);
       // ChatView renders banner via `{props.branchBanner && ...}` —
@@ -245,11 +245,11 @@ describe('turn-control-history matrix', () => {
     });
 
     it('visible-parent active session with parent in list DOES return a banner (positive case)', () => {
-      const primary = { id: 'visual-smoke-turn-control-primary', name: '回合控制示例（原会话）' };
+      const primary = { id: 'e2e-fixture-turn-control-primary', name: '回合控制示例（原会话）' };
       const branch = {
-        id: 'visual-smoke-turn-control-branch-visible',
+        id: 'e2e-fixture-turn-control-branch-visible',
         name: '从原会话分出的探索',
-        parentSessionId: 'visual-smoke-turn-control-primary',
+        parentSessionId: 'e2e-fixture-turn-control-primary',
       };
       const banner = deriveBranchBanner(branch, [primary, branch]);
       assert.ok(banner, 'visible-parent branch should produce a banner');

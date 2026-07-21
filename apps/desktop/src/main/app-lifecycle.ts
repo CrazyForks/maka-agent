@@ -15,8 +15,8 @@ import type { createFileCredentialStore } from './credential-store.js';
 import { startConfigFileWatcher, type ConfigFileWatcher } from './config-file-watcher.js';
 import { toContractNetworkSettings } from './network-settings-main.js';
 import { importLegacyOAuthTokenFiles } from './oauth/shared-credential-bridge.js';
-import { seedVisualSmokeFixture } from './visual-smoke-fixture.js';
-import type { resolveVisualSmokeFixture } from './visual-smoke-fixture.js';
+import { seedE2eFixture } from './e2e-fixture.js';
+import type { resolveE2eFixture } from './e2e-fixture.js';
 import type { OpenGatewayService } from './open-gateway.js';
 import type { KeepSystemAwakeController } from './keep-system-awake.js';
 import type { createPlanReminderMainService } from './plan-reminders-main.js';
@@ -33,7 +33,7 @@ type PricingLookup = ReturnType<typeof buildPricingLookup>;
 
 export interface AppLifecycleDeps {
   isIsolatedE2e: boolean;
-  visualSmokeFixture: ReturnType<typeof resolveVisualSmokeFixture>;
+  e2eFixture: ReturnType<typeof resolveE2eFixture>;
   workspaceRoot: string;
   credentialStore: ReturnType<typeof createFileCredentialStore>;
   connectionStore: ReturnType<typeof createConnectionStore>;
@@ -82,7 +82,7 @@ export interface AppLifecycleDeps {
 export function wireAppLifecycle(deps: AppLifecycleDeps): void {
   const {
     isIsolatedE2e,
-    visualSmokeFixture,
+    e2eFixture,
     workspaceRoot,
     credentialStore,
     connectionStore,
@@ -174,7 +174,7 @@ export function wireAppLifecycle(deps: AppLifecycleDeps): void {
     // builds get the icon via .app bundle Info.plist; this covers the
     // dev path.
     if (process.platform === 'darwin' && app.dock) {
-      if (process.env.MAKA_VISUAL_SMOKE_FIXTURE || isIsolatedE2e) {
+      if (process.env.MAKA_E2E_FIXTURE || isIsolatedE2e) {
         // PR-VISUAL-SMOKE-HEADLESS: hide the dock icon so the spawned
         // Electron runs as an accessory app — no dock bounce, and it
         // never becomes frontmost / steals focus from the developer's
@@ -201,16 +201,16 @@ export function wireAppLifecycle(deps: AppLifecycleDeps): void {
     // settled. Any state that background startup mutates is pushed to the
     // renderer via the existing `sessions:changed` / `connections:event`
     // / `settings:bots:statusChanged` channels, so the UI converges lazily.
-    // Visual-smoke fixture mode wipes and reseeds the whole workspace
+    // E2e-fixture mode wipes and reseeds the whole workspace
     // (`rm -rf` first). That wipe must finish BEFORE the window opens and
     // before background startup touches the workspace: createWindow reads
     // the settings store, and a concurrent wipe lands inside the store's
     // read-or-create write (mkdir → tmp → rename), rejecting createWindow
     // so the window never appears. Fixture runs trade first-paint latency
     // for determinism by definition; production launches skip this await.
-    if (visualSmokeFixture) {
-      console.log(`[visual-smoke] scenario=${visualSmokeFixture.scenario} workspace=${workspaceRoot}`);
-      await seedVisualSmokeFixture({ workspaceRoot, fixture: visualSmokeFixture, credentialStore });
+    if (e2eFixture) {
+      console.log(`[e2e-fixture] scenario=${e2eFixture.scenario} workspace=${workspaceRoot}`);
+      await seedE2eFixture({ workspaceRoot, fixture: e2eFixture, credentialStore });
     }
     await runCredentialStartup();
     app.on('second-instance', focusOrCreateMainWindow);
@@ -267,9 +267,9 @@ export function wireAppLifecycle(deps: AppLifecycleDeps): void {
    * with the app shell.
    */
   async function runBackgroundStartup(): Promise<void> {
-    // Visual-smoke seeding happens synchronously in `whenReady` before the
+    // E2e-fixture seeding happens synchronously in `whenReady` before the
     // window opens (see there for why); only the real bootstrap runs here.
-    if (!visualSmokeFixture) {
+    if (!e2eFixture) {
       await ensureBootstrapConnection();
     }
     const settings = await settingsStore.get();

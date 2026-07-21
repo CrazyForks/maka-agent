@@ -5,7 +5,7 @@
  * flashes the index.html `.maka-preload` skeleton before React paints. The
  * renderer signals `window:notifyRendererReady` after its first React commit,
  * and a fallback timer reveals the window if that signal never arrives. Under
- * visual-smoke capture the window must stay hidden for its whole life.
+ * e2e-fixture capture the window must stay hidden for its whole life.
  *
  * The reveal decision lives in showWindowOnceReady (window-reveal.ts) precisely
  * so it can be exercised behaviorally here — main-window.ts can't be imported
@@ -122,7 +122,7 @@ describe('window reveal gate defers early focus (ChatGPT Pro review P2)', () => 
     assert.equal(win.focusCount, 1);
   });
 
-  it('keepHidden (visual-smoke / E2E) never shows or focuses from any path', () => {
+  it('keepHidden (e2e-fixture / E2E) never shows or focuses from any path', () => {
     const gate = createWindowRevealGate(true);
     const win = makeFakeFocusableWindow();
     gate.requestFocus(win);
@@ -158,13 +158,13 @@ describe('window reveal gate defers early focus (ChatGPT Pro review P2)', () => 
     readyGate.requestMaximize(readyWin);
     assert.equal(readyWin.maximizeCount, 1);
 
-    const smokeGate = createWindowRevealGate(true);
-    const smokeWin = makeFakeFocusableWindow();
-    smokeGate.requestMaximize(smokeWin);
-    smokeGate.markReady(smokeWin);
-    smokeGate.requestMaximize(smokeWin);
-    assert.equal(smokeWin.maximizeCount, 0);
-    assert.equal(smokeWin.isVisible(), false);
+    const fixtureGate = createWindowRevealGate(true);
+    const fixtureWin = makeFakeFocusableWindow();
+    fixtureGate.requestMaximize(fixtureWin);
+    fixtureGate.markReady(fixtureWin);
+    fixtureGate.requestMaximize(fixtureWin);
+    assert.equal(fixtureWin.maximizeCount, 0);
+    assert.equal(fixtureWin.isVisible(), false);
   });
 
   it('reset() re-arms the gate for a recreated window (macOS close-all)', () => {
@@ -209,7 +209,7 @@ describe('window reveal gate (PR-SHOW-AFTER-FIRST-COMMIT)', () => {
     assert.equal(win.isVisible(), true);
   });
 
-  it('visual-smoke (keepHidden) never reveals, from either the signal or the timer', () => {
+  it('e2e-fixture (keepHidden) never reveals, from either the signal or the timer', () => {
     const win = makeFakeWindow();
     // Renderer-ready path.
     showWindowOnceReady(win, true);
@@ -279,11 +279,11 @@ describe('window reveal wiring (PR-SHOW-AFTER-FIRST-COMMIT)', () => {
     assert.notEqual(rendererLoadIndex, -1);
     assert.notEqual(fallbackTimerIndex, -1);
     assert.ok(fallbackTimerIndex > rendererLoadIndex, 'fallback must start after renderer load');
-    // Timer must not run for visual-smoke or already-revealed windows, and
+    // Timer must not run for e2e-fixture or already-revealed windows, and
     // must clear on close.
     assert.match(
       src,
-      /if \(!keepHiddenForVisualSmoke && !mainWindow\.isVisible\(\)\) \{\s*showFallbackTimer = setTimeout/,
+      /if \(!keepHiddenForE2eFixture && !mainWindow\.isVisible\(\)\) \{\s*showFallbackTimer = setTimeout/,
     );
     assert.match(
       src,
