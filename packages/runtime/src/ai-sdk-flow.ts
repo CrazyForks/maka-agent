@@ -340,6 +340,9 @@ function mapBackendSessionEvent(
           id: event.toolUseId,
           name: event.toolName,
           args: structuredClone(event.args),
+          ...(event.providerOptions !== undefined
+            ? { providerOptions: structuredClone(event.providerOptions) }
+            : {}),
         },
         refs: {
           toolCallId: event.toolUseId,
@@ -466,6 +469,26 @@ function mapBackendSessionEvent(
     // legal producer and pushes it directly into the turn stream. The flow
     // drops a backend-yielded one at the ingress — see run() — so it is
     // excluded from this function's input vocabulary.)
+
+    // ── Transient provider retry progress ────────────────────────────────
+    case 'provider_retry':
+      return {
+        ...base,
+        partial: true,
+        role: 'system',
+        author: 'system',
+        actions: {
+          stateDelta: {
+            providerRetry: {
+              phase: event.phase,
+              attempt: event.attempt,
+              maxAttempts: event.maxAttempts,
+              ...(event.phase === 'scheduled' ? { delayMs: event.delayMs } : {}),
+              reason: event.reason,
+            },
+          },
+        },
+      };
 
     // ── Plan handoff (placeholder; Phase 5/7 refines) ─────────────────────
     case 'plan_submitted':

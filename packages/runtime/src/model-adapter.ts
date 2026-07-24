@@ -14,6 +14,7 @@ import type {
   ModelFailureKind,
   ModelRequestMetadata,
   ModelToolSet,
+  ToolCallPart,
 } from './model-protocol.js';
 export type {
   NormalizedUsage,
@@ -28,7 +29,11 @@ export type {
 } from './model-protocol.js';
 
 import { resolveModelRuntime } from './model-runtime.js';
-import { classifyError, errorPresentationFromClass } from './provider-error-classification.js';
+import {
+  classifyError,
+  errorPresentationFromClass,
+  providerRetryMetadata,
+} from './provider-error-classification.js';
 import type { ProviderRequestTracker } from './provider-request-telemetry.js';
 
 /**
@@ -60,49 +65,9 @@ export interface ModelAdapterInput {
   modelId: string;
   modelFactory: ModelFactory;
   providerOptions?: Record<string, unknown>;
-  maxSteps?: number;
   newId: () => string;
   now: () => number;
 }
-
-export interface PrepareStepLike {
-  steps: ReadonlyArray<{
-    toolCalls?: ReadonlyArray<{ toolCallId?: string; toolName: string; input?: unknown }>;
-    /** Real provider usage the SDK recorded for this finished step. */
-    usage?: AiSdkUsageLike;
-  }>;
-  stepNumber: number;
-  model: unknown;
-  messages: ModelMessage[];
-  /**
-   * Active tool subset for this step. The SDK does not pass it; the composed
-   * prepareStep pipeline threads an earlier hook's `activeTools` result through
-   * so later hooks (and the final-request estimate owner) can measure the
-   * provider-visible tool schema for the step.
-   */
-  activeTools?: readonly string[];
-  instructions?: unknown;
-  initialInstructions?: unknown;
-  initialMessages?: ModelMessage[];
-  responseMessages?: unknown[];
-  runtimeContext?: unknown;
-  toolsContext?: unknown;
-}
-
-export interface PrepareStepResultLike {
-  activeTools?: string[];
-  messages?: ModelMessage[];
-  model?: unknown;
-  toolChoice?: unknown;
-  instructions?: unknown;
-  providerOptions?: Record<string, unknown>;
-  runtimeContext?: unknown;
-  toolsContext?: unknown;
-}
-
-export type PrepareStepFunctionLike = (
-  options: PrepareStepLike,
-) => PrepareStepResultLike | undefined | PromiseLike<PrepareStepResultLike | undefined>;
 
 export interface CompactSummaryRequest {
   model: unknown;
@@ -130,22 +95,6 @@ export interface ModelAdapterStreamInput {
     toolCall: RepairableAiSdkToolCall;
     error: unknown;
   }) => RepairableAiSdkToolCall | null | Promise<RepairableAiSdkToolCall | null>;
-  /**
-   * Optional per-step active-tool override for deferred tool loading. Recomputes
-   * `activeTools` before each step so a tool loaded mid-turn becomes advertised
-   * on the next step without mutating the cached tools prefix.
-   */
-  prepareStep?: PrepareStepFunctionLike;
-  /**
-   * Per-call step budget override. The step limit is a SEND-level cap owned by
-   * the backend: a reactive overflow retry re-invokes startStream mid-send and
-   * must pass only the remaining budget (configured maxSteps minus the steps
-   * already completed), or every retry would silently reset the cap. Defaults
-   * to the adapter's configured maxSteps.
-   */
-  maxSteps?: number;
-  /** Stop the SDK tool loop after the current provider step completes. */
-  stopAfterStep?: () => boolean;
   /** Main-agent provider-call tracker. Auxiliary model calls intentionally omit it. */
   providerRequestTracker?: ProviderRequestTracker;
 }
@@ -164,11 +113,10 @@ export class ModelAdapter {
   constructor(private readonly input: ModelAdapterInput) {}
 
   runtimeEventReplaySupport(): ModelAdapterRuntimeEventReplaySupport {
-    const { adapter } = resolveModelRuntime(this.input.connection, this.input.modelId);
     return {
       toolCalls: true,
       toolResults: true,
-      signedThinking: adapter.kind === 'anthropic' || adapter.kind === 'claude-subscription',
+      signedThinking: usesAnthropicMessages(this.input.connection, this.input.modelId),
     };
   }
 
@@ -189,21 +137,16 @@ export class ModelAdapter {
         `Failed to load 'ai' package. Run \`npm install ai\`. Inner: ${(err as Error).message}`,
       );
     });
-    const { streamText, isStepCount, isLoopFinished, wrapLanguageModel } = ai as unknown as {
+    const { streamText, wrapLanguageModel } = ai as unknown as {
       streamText: (opts: Record<string, unknown>) => SdkStreamResult;
-      isStepCount: (n: number) => unknown;
-      isLoopFinished: () => unknown;
       wrapLanguageModel: (input: Record<string, unknown>) => unknown;
     };
 
-    const maxSteps = input.maxSteps ?? this.input.maxSteps;
     const maxOutputTokens = selectedModelMaxOutputTokens(
       this.input.connection,
       this.input.modelId,
       this.input.providerOptions,
     );
-    const configuredStop = maxSteps === undefined ? isLoopFinished() : isStepCount(maxSteps);
-    const stopAfterStep = input.stopAfterStep;
     const trackedModel = input.providerRequestTracker
       ? wrapLanguageModel({
           model: input.model,
@@ -219,23 +162,31 @@ export class ModelAdapter {
           },
         })
       : input.model;
+    const schemaOnlyTools: ModelToolSet = Object.fromEntries(
+      Object.entries(input.tools).map(([name, definition]) => [
+        name,
+        {
+          ...(definition.description !== undefined ? { description: definition.description } : {}),
+          inputSchema: definition.inputSchema,
+        },
+      ]),
+    );
     const sdkResult = streamText({
       model: trackedModel,
       messages: input.messages,
-      tools: input.tools,
+      tools: schemaOnlyTools,
       activeTools: input.activeTools,
-      ...(input.prepareStep ? { prepareStep: input.prepareStep } : {}),
       repairToolCall: input.repairToolCall,
       ...(input.system ? { instructions: input.system } : {}),
       ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
       providerOptions: this.input.providerOptions,
+      maxRetries: 0,
       // Preserve the final request's Maka-owned message projection without
       // retaining the provider request body. ProviderRequestTracker owns body
       // capture; duplicating it here can retain large base64 image payloads.
       include: { requestMessages: true },
-      // streamText defaults to one step when stopWhen is omitted. Its exported
-      // non-stopping condition is required for an unbounded tool loop.
-      stopWhen: stopAfterStep ? [configuredStop, () => stopAfterStep()] : configuredStop,
+      // With no continuation predicate, streamText performs one provider step.
+      // Continuation belongs to the Runtime above this adapter.
       abortSignal: input.abortSignal,
       // The SDK default onError console.errors the raw error object (stack,
       // request bodies), which lands on the terminal outside the TUI
@@ -342,6 +293,10 @@ export class ModelAdapter {
     };
   }
 
+  normalizeFailure(error: unknown): ModelFailure {
+    return normalizeModelFailure(error);
+  }
+
   classifyError(error: unknown): string {
     if (isModelFailure(error)) return errorClassFromFailureKind(error.kind);
     return classifyError(error);
@@ -370,17 +325,21 @@ function selectedModelMaxOutputTokens(
   modelId: string,
   providerOptions: Record<string, unknown> | undefined,
 ): number | undefined {
-  const { adapter, apiProtocol } = resolveModelRuntime(connection, modelId);
-  const usesAnthropicMessages =
-    adapter.kind === 'anthropic' ||
-    adapter.kind === 'claude-subscription' ||
-    (adapter.kind === 'github-copilot' && apiProtocol === 'anthropic-messages');
-  if (!usesAnthropicMessages) return undefined;
+  if (!usesAnthropicMessages(connection, modelId)) return undefined;
   const wireOutputLimit =
     connection.models?.find((model) => model.id === modelId)?.maxOutputTokens ??
     lookupModelMetadata(connection.providerType, modelId).maxOutputTokens;
   if (wireOutputLimit === undefined) return undefined;
   return wireOutputLimit - fixedAnthropicThinkingBudget(providerOptions);
+}
+
+function usesAnthropicMessages(connection: LlmConnection, modelId: string): boolean {
+  const { adapter, apiProtocol } = resolveModelRuntime(connection, modelId);
+  return (
+    adapter.kind === 'anthropic' ||
+    adapter.kind === 'claude-subscription' ||
+    (adapter.kind === 'github-copilot' && apiProtocol === 'anthropic-messages')
+  );
 }
 
 function fixedAnthropicThinkingBudget(
@@ -413,7 +372,9 @@ interface AiSdkStreamChunk {
   textDelta?: string;
   toolCallId?: string;
   toolName?: string;
+  input?: unknown;
   args?: unknown;
+  providerExecuted?: boolean;
   result?: unknown;
   usage?: AiSdkUsageLike;
   finishReason?: unknown;
@@ -500,9 +461,24 @@ function translateChunk(chunk: AiSdkStreamChunk): ModelStreamEvent[] {
     }
     case 'reasoning-start':
     case 'start-step':
-    case 'tool-call':
     case 'tool-result':
       return [];
+    case 'tool-call': {
+      if (typeof chunk.toolCallId !== 'string' || typeof chunk.toolName !== 'string') return [];
+      const toolCall: ToolCallPart = {
+        type: 'tool-call',
+        toolCallId: chunk.toolCallId,
+        toolName: chunk.toolName,
+        input: chunk.input ?? chunk.args,
+        ...(chunk.providerExecuted !== undefined
+          ? { providerExecuted: chunk.providerExecuted }
+          : {}),
+        ...(chunk.providerMetadata !== undefined
+          ? { providerOptions: chunk.providerMetadata as ToolCallPart['providerOptions'] }
+          : {}),
+      };
+      return [{ kind: 'tool-call', toolCall }];
+    }
     case 'error':
       return [{ kind: 'error', failure: normalizeModelFailure(chunk.error) }];
     default:
@@ -514,6 +490,7 @@ function normalizeModelFailure(error: unknown): ModelFailure {
   if (isModelFailure(error)) return error;
   const errorClass = classifyError(error);
   const presentation = errorPresentationFromClass(errorClass);
+  const retry = providerRetryMetadata(error);
   const code =
     error instanceof Error && 'code' in error
       ? String((error as { code?: unknown }).code)
@@ -521,6 +498,8 @@ function normalizeModelFailure(error: unknown): ModelFailure {
   return {
     type: 'model_failure',
     kind: modelFailureKind(errorClass),
+    retryable: retry.retryable,
+    ...(retry.retryAfterMs !== undefined ? { retryAfterMs: retry.retryAfterMs } : {}),
     ...(code !== undefined ? { code } : {}),
     message: presentation.message ?? generalizedErrorMessage(error),
   };

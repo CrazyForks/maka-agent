@@ -1537,6 +1537,10 @@ export class RuntimeKernel implements RuntimeKernelLike {
               const run = runId ? active?.activeRuns.get(runId) : undefined;
               return this.recordHistoryCompactCheckpoint(sessionId, checkpoint, run);
             },
+          }
+        : {}),
+      ...(this.deps.runtimeEventStore
+        ? {
             loadTurnRuntimeEvents: (turnId: string) => {
               const active = this.active.get(sessionId);
               const runId = active?.turnToRunId.get(turnId);
@@ -1547,6 +1551,7 @@ export class RuntimeKernel implements RuntimeKernelLike {
             },
           }
         : {}),
+      allowMidTurnHistoryCompaction: Boolean(this.deps.runtimeEventStore),
       recordActiveFullCompactBlock: (block) => {
         const active = this.active.get(sessionId);
         const runId = active?.turnToRunId.get(block.turnId);
@@ -1657,15 +1662,22 @@ export class RuntimeKernel implements RuntimeKernelLike {
               const run = runId ? active?.activeRuns.get(runId) : undefined;
               return this.recordHistoryCompactCheckpoint(sessionId, checkpoint, run);
             },
-            // loadTurnRuntimeEvents is deliberately NOT injected for child
-            // sessions: a child run has no top-level prior context, so a mid-turn
-            // checkpoint built from its child-only ledger would claim to cover a
-            // session-scoped projection prefix and poison the session-global
-            // checkpoint cache/CAS for the parent projection. Child mid-turn
-            // compaction stays disabled (the backend requires this seam) until
-            // checkpoint streams are partitioned by lineage.
           }
         : {}),
+      ...(this.deps.runtimeEventStore
+        ? {
+            loadTurnRuntimeEvents: (turnId: string) => {
+              const active = this.childActive.get(activeKey);
+              const runId = active?.turnToRunId.get(turnId);
+              const run = runId ? active?.activeRuns.get(runId) : undefined;
+              if (!run)
+                return Promise.reject(new Error('No active AgentRun for turn runtime events'));
+              return run.loadTurnRuntimeEvents();
+            },
+          }
+        : {}),
+      // A child-only ledger cannot claim coverage of the parent session prefix.
+      allowMidTurnHistoryCompaction: false,
       recordActiveFullCompactBlock: (block) => {
         const active = this.childActive.get(activeKey);
         const runId = active?.turnToRunId.get(block.turnId);
